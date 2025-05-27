@@ -1,0 +1,29 @@
+# Python仮想環境
+env/
+venv/
+.env
+
+# キャッシュファイル
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ログファイル
+*.log
+
+# ローカル設定
+.vscode/
+.idea/
+
+# 出力ディレクトリ
+output/
+
+# モデルファイル（必要に応じてコメントアウト）
+# models/
+
+# 一時ファイル
+.DS_Store
+Thumbs.db

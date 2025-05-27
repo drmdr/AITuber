@@ -1,0 +1,68 @@
+{
+  "style_bert_vits2": {
+    "model_path": "./models/style-bert-vits2",
+    "config_path": "./models/style-bert-vits2/config.json",
+    "device": "cuda",
+    "language": "JP",
+    "speaker_id": 0,
+    "style_id": 0,
+    "noise_scale": 0.6,
+    "noise_scale_w": 0.8,
+    "length_scale": 1.0,
+    "server_url": "http://127.0.0.1:5000"
+  },
+  "aituber": {
+    "avatar_image_path": "./avatar/avatar.png",
+    "mouth_open_image_path": "./avatar/avatar_mouth_open.png",
+    "window_width": 640,
+    "window_height": 480,
+    "background_color": [0.2, 0.2, 0.2, 1.0],
+    "animation": {
+      "frame_rate": 30,
+      "mouth_animation_speed": 3,
+      "blink_interval": [3, 6],
+      "blink_duration": 0.3,
+      "enable_eye_animation": false,
+      "enable_mouth_animation": true,
+      "enable_smooth_transitions": false
+    },
+    "performance": {
+      "reduce_model_complexity": true,
+      "optimize_rendering": true,
+      "use_hardware_acceleration": true,
+      "low_memory_mode": true
+    }
+  },
+  "audio": {
+    "sample_rate": 24000,
+    "output_device": null,
+    "buffer_size": 1024
+  },
+  "ai": {
+    "model": "gemini",
+    "api_key": "",
+    "max_tokens": 150,
+    "temperature": 0.7,
+    "response_time": {
+      "min_delay": 0.1,
+      "max_delay": 0.5
+    }
+  },
+  "character": {
+    "name": "モナミン",
+    "persona": "Monad testnetやブロックチェーンに詳しい女の子。暗号資産とWeb3技術に情熱を持ち、特にMonadブロックチェーンの技術的側面に詳しい。明るく親しみやすい性格で、複雑な技術トピックを分かりやすく説明するのが得意。",
+    "greeting": "Gmonamin！モナミンです！Monadとブロックチェーンについて何でも聞いてください！",
+    "voice_characteristics": {
+      "pitch": 1.0,
+      "speed": 1.1
+    },
+    "knowledge": [
+      "Monadは高性能なLayer-1ブロックチェーン",
+      "MonadはHaskellベースの関数型プログラミング言語を使用",
+      "Monad testnetは開発者がdAppsをテストできる環境",
+      "Monadはスケーラビリティとセキュリティに優れている",
+      "Monadエコシステムには様々なプロジェクトが参加している"
+    ],
+    "speaking_style": "親しみやすく、専門用語を使いながらも分かりやすく説明する。時々「〜だよ！」「〜なの！」などの語尾を使う。挨拶は必ず'Gmonamin!'から始める。"
+  }
+}
