@@ -103,8 +103,8 @@ def start_pod(pod_id):
         print(f"Error starting pod: {response.text}")
         return False
 
-def download_models(pod_info):
-    """必要なモデルファイルをダウンロードする"""
+def prepare_model_directories(pod_info):
+    """モデルファイル用のディレクトリ構造を準備する"""
     ssh_key_path = setup_ssh_key()
     ssh_host = pod_info.get('sshHost')
     ssh_port = pod_info.get('sshPort', 22)
@@ -113,46 +113,48 @@ def download_models(pod_info):
         print("SSH host information not available")
         return False
     
-    # モデルダウンロードスクリプトを作成
-    download_script = '''
+    # ディレクトリ準備スクリプトを作成
+    prepare_script = '''
 #!/bin/bash
-# 必要なモデルファイルをダウンロードするスクリプト
+# モデルファイル用のディレクトリ構造を準備するスクリプト
 set -e
 
 MODELS_DIR="/workspace/AITuber-Monamin/models"
-LOG_FILE="/workspace/model_download.log"
+VOICE_MODELS_DIR="$MODELS_DIR/voice"
+WHISPER_MODELS_DIR="$MODELS_DIR/whisper"
+CHARACTER_MODELS_DIR="$MODELS_DIR/character"
+LOG_FILE="/workspace/model_setup.log"
 
+# 必要なディレクトリを作成
 mkdir -p "$MODELS_DIR"
-echo "$(date): モデルのダウンロードを開始します" >> "$LOG_FILE"
+mkdir -p "$VOICE_MODELS_DIR"
+mkdir -p "$WHISPER_MODELS_DIR"
+mkdir -p "$CHARACTER_MODELS_DIR"
 
-# 音声モデルのダウンロード（例）
-if [ ! -f "$MODELS_DIR/voice_model.bin" ]; then
-    echo "音声モデルをダウンロードしています..." >> "$LOG_FILE"
-    # 実際のダウンロードURLに置き換えてください
-    # wget -O "$MODELS_DIR/voice_model.bin" "https://example.com/path/to/voice_model.bin"
-    # 仮のファイルを作成（実際のURLが分かるまでのプレースホルダー）
-    touch "$MODELS_DIR/voice_model.bin"
-    echo "音声モデルのダウンロードが完了しました" >> "$LOG_FILE"
-fi
+echo "$(date): モデルディレクトリの準備が完了しました" >> "$LOG_FILE"
+echo "モデルファイルは手動でアップロードしてください" >> "$LOG_FILE"
 
-# Whisperモデルのダウンロード
-if [ ! -d "$MODELS_DIR/whisper-medium" ]; then
-    echo "Whisperモデルをダウンロードしています..." >> "$LOG_FILE"
-    mkdir -p "$MODELS_DIR/whisper-medium"
-    python -c "import whisper; whisper.load_model('medium')" >> "$LOG_FILE" 2>&1
-    echo "Whisperモデルのダウンロードが完了しました" >> "$LOG_FILE"
-fi
+# 手順書を作成
+cat > "$MODELS_DIR/README.txt" << EOL
+# AITuber-Monamin モデルファイルのアップロード手順
 
-# その他必要なモデルファイルのダウンロードをここに追加
+以下のディレクトリにそれぞれのモデルファイルをアップロードしてください：
 
-echo "$(date): すべてのモデルのダウンロードが完了しました" >> "$LOG_FILE"
+1. 音声モデル: $VOICE_MODELS_DIR
+2. Whisperモデル: $WHISPER_MODELS_DIR
+3. キャラクターモデル: $CHARACTER_MODELS_DIR
+
+モデルファイルをアップロードした後、AITuberKitを起動して設定画面からモデルパスを指定してください。
+EOL
+
+echo "$(date): セットアップが完了しました。モデルファイルは手動でアップロードしてください。" >> "$LOG_FILE"
 '''
     
     try:
         # スクリプトを一時ファイルに保存
-        temp_script = '/tmp/download_models.sh'
+        temp_script = '/tmp/prepare_models.sh'
         with open(temp_script, 'w') as f:
-            f.write(download_script)
+            f.write(prepare_script)
         
         # スクリプトをPodに転送
         scp_cmd = [
@@ -161,7 +163,7 @@ echo "$(date): すべてのモデルのダウンロードが完了しました" 
             '-o', 'StrictHostKeyChecking=no',
             '-P', str(ssh_port),
             temp_script,
-            f'root@{ssh_host}:/workspace/download_models.sh'
+            f'root@{ssh_host}:/workspace/prepare_models.sh'
         ]
         
         subprocess.run(scp_cmd, check=True)
@@ -173,14 +175,14 @@ echo "$(date): すべてのモデルのダウンロードが完了しました" 
             '-o', 'StrictHostKeyChecking=no',
             '-p', str(ssh_port),
             f'root@{ssh_host}',
-            'chmod +x /workspace/download_models.sh && /workspace/download_models.sh'
+            'chmod +x /workspace/prepare_models.sh && /workspace/prepare_models.sh'
         ]
         
         subprocess.run(ssh_cmd, check=True)
-        print("Model download script executed successfully")
+        print("Model directory preparation script executed successfully")
         return True
     except Exception as e:
-        print(f"Failed to download models: {e}")
+        print(f"Failed to prepare model directories: {e}")
         return False
 
 def deploy_code(pod_info):
@@ -208,8 +210,8 @@ def deploy_code(pod_info):
         print("Deployment successful:")
         print(result.stdout)
         
-        # モデルファイルのダウンロード
-        download_models(pod_info)
+        # モデルファイル用のディレクトリ構造を準備
+        prepare_model_directories(pod_info)
         
         return True
     except subprocess.CalledProcessError as e:
