@@ -59,7 +59,7 @@ def create_pod():
         'volumeDiskSizeGB': VOLUME_DISK_SIZE_GB,
         'dockerArgs': '--shm-size=1g',
         'containerImage': 'runpod/pytorch:2.0.1-py3.10-cuda11.8.0-devel',
-        'startScript': 'cd /workspace && git clone https://github.com/drmdr/AITuber-Monamin.git && cd AITuber-Monamin && pip install -r requirements.txt'
+        'startScript': 'cd /workspace && git clone https://github.com/drmdr/AITuber-Monamin.git && cd AITuber-Monamin && pip install -r requirements.txt && mkdir -p models'
     }
     
     response = requests.post(f'{RUNPOD_API_URL}/pods', headers=headers, json=data)
@@ -103,6 +103,86 @@ def start_pod(pod_id):
         print(f"Error starting pod: {response.text}")
         return False
 
+def download_models(pod_info):
+    """必要なモデルファイルをダウンロードする"""
+    ssh_key_path = setup_ssh_key()
+    ssh_host = pod_info.get('sshHost')
+    ssh_port = pod_info.get('sshPort', 22)
+    
+    if not ssh_host:
+        print("SSH host information not available")
+        return False
+    
+    # モデルダウンロードスクリプトを作成
+    download_script = '''
+#!/bin/bash
+# 必要なモデルファイルをダウンロードするスクリプト
+set -e
+
+MODELS_DIR="/workspace/AITuber-Monamin/models"
+LOG_FILE="/workspace/model_download.log"
+
+mkdir -p "$MODELS_DIR"
+echo "$(date): モデルのダウンロードを開始します" >> "$LOG_FILE"
+
+# 音声モデルのダウンロード（例）
+if [ ! -f "$MODELS_DIR/voice_model.bin" ]; then
+    echo "音声モデルをダウンロードしています..." >> "$LOG_FILE"
+    # 実際のダウンロードURLに置き換えてください
+    # wget -O "$MODELS_DIR/voice_model.bin" "https://example.com/path/to/voice_model.bin"
+    # 仮のファイルを作成（実際のURLが分かるまでのプレースホルダー）
+    touch "$MODELS_DIR/voice_model.bin"
+    echo "音声モデルのダウンロードが完了しました" >> "$LOG_FILE"
+fi
+
+# Whisperモデルのダウンロード
+if [ ! -d "$MODELS_DIR/whisper-medium" ]; then
+    echo "Whisperモデルをダウンロードしています..." >> "$LOG_FILE"
+    mkdir -p "$MODELS_DIR/whisper-medium"
+    python -c "import whisper; whisper.load_model('medium')" >> "$LOG_FILE" 2>&1
+    echo "Whisperモデルのダウンロードが完了しました" >> "$LOG_FILE"
+fi
+
+# その他必要なモデルファイルのダウンロードをここに追加
+
+echo "$(date): すべてのモデルのダウンロードが完了しました" >> "$LOG_FILE"
+'''
+    
+    try:
+        # スクリプトを一時ファイルに保存
+        temp_script = '/tmp/download_models.sh'
+        with open(temp_script, 'w') as f:
+            f.write(download_script)
+        
+        # スクリプトをPodに転送
+        scp_cmd = [
+            'scp',
+            '-i', str(ssh_key_path),
+            '-o', 'StrictHostKeyChecking=no',
+            '-P', str(ssh_port),
+            temp_script,
+            f'root@{ssh_host}:/workspace/download_models.sh'
+        ]
+        
+        subprocess.run(scp_cmd, check=True)
+        
+        # スクリプトに実行権限を付与して実行
+        ssh_cmd = [
+            'ssh',
+            '-i', str(ssh_key_path),
+            '-o', 'StrictHostKeyChecking=no',
+            '-p', str(ssh_port),
+            f'root@{ssh_host}',
+            'chmod +x /workspace/download_models.sh && /workspace/download_models.sh'
+        ]
+        
+        subprocess.run(ssh_cmd, check=True)
+        print("Model download script executed successfully")
+        return True
+    except Exception as e:
+        print(f"Failed to download models: {e}")
+        return False
+
 def deploy_code(pod_info):
     """SSHを使用してコードをデプロイする"""
     ssh_key_path = setup_ssh_key()
@@ -127,6 +207,10 @@ def deploy_code(pod_info):
         result = subprocess.run(ssh_cmd, check=True, capture_output=True, text=True)
         print("Deployment successful:")
         print(result.stdout)
+        
+        # モデルファイルのダウンロード
+        download_models(pod_info)
+        
         return True
     except subprocess.CalledProcessError as e:
         print(f"Deployment failed: {e}")
@@ -258,15 +342,15 @@ def main():
                 # 最新のPod情報を取得
                 pod_info = get_pod_status(pod_id)
                 if pod_info:
-                    # コードをデプロイ
+                    # コードをデプロイ（モデルダウンロードも含む）
                     deploy_code(pod_info)
                     # 自動シャットダウンを設定
                     setup_auto_shutdown(pod_info)
-            else:
-                print("Failed to start the pod")
-                sys.exit(1)
+                else:
+                    print("Failed to start the pod")
+                    sys.exit(1)
         elif pod_status == 'RUNNING':
-            # Podが実行中ならコードをデプロイ
+            # Podが実行中ならコードをデプロイ（モデルダウンロードも含む）
             print("Pod is already running. Deploying code...")
             deploy_code(existing_pod)
             # 自動シャットダウンを設定
