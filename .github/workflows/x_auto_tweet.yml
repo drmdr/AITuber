@@ -39,6 +39,7 @@ jobs:
           X_API_SECRET_KEY: ${{ secrets.X_API_SECRET_KEY }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           FORCE_POST: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           python x_poster/morning_greet_poster.py
