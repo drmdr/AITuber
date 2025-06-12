@@ -1,11 +1,40 @@
-name: Minimal X Test
+name: X Auto Tweet Workflow
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 23 * * *'  # 08:00 JST every day
 
 jobs:
-  test:
+  tweet:
     runs-on: ubuntu-latest
     steps:
-      - name: Echo test
-        run: echo 'Minimal X workflow test'
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restore Google credentials
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          mkdir -p credentials
+          echo "$GOOGLE_CREDENTIALS_JSON" > credentials/google-credentials.json
+
+      - name: Run morning greet poster
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET_KEY: ${{ secrets.X_API_SECRET_KEY }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: |
+          python x_poster/morning_greet_poster.py
