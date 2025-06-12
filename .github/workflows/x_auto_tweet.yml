@@ -31,6 +31,7 @@ jobs:
 
       - name: Run morning greet poster
         env:
+          GOOGLE_APPLICATION_CREDENTIALS: "credentials/google-credentials.json"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET_KEY: ${{ secrets.X_API_SECRET_KEY }}
