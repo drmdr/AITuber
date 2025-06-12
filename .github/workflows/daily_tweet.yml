@@ -39,3 +39,5 @@ jobs:
           GS_CREDENTIALS_FILE_PATH: ./google-credentials.json # Path for the script to find the credentials
           PYTHONIOENCODING: "utf-8"
         run: python x_poster/morning_greet_poster.py
+
+# This is a test comment to trigger re-scan
