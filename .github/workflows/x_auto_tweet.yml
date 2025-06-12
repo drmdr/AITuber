@@ -1,6 +1,9 @@
 name: X Auto Tweet Workflow
 
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
   schedule:
     - cron: '0 23 * * *'  # 08:00 JST every day
