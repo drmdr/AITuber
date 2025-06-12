@@ -1,0 +1,5 @@
+tweepy
+gspread
+google-auth
+google-generativeai
+pytz
