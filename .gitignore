@@ -27,3 +27,6 @@ output/
 # 一時ファイル
 .DS_Store
 Thumbs.db
+config.json
+config.local.json
+credentials/

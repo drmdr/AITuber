@@ -14,7 +14,15 @@ import pytz
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Configuration Loading ---
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.json')
+def find_config_file():
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for name in ["config.local.json", "config.public.json", "config.json"]:
+        candidate = os.path.join(base_dir, name)
+        if os.path.exists(candidate):
+            return candidate
+    raise FileNotFoundError("No config file found (tried config.local.json, config.public.json, config.json)")
+
+CONFIG_FILE = find_config_file()
 
 def load_config():
     """Loads configuration from config.json and environment variables."""
@@ -220,9 +228,13 @@ def run_post_job():
     """The main job to perform the morning greeting post."""
     logging.info("Starting post job...")
 
-    if has_posted_within_last_23_hours():
-        logging.info("A post has already been made in the last 23 hours. Skipping to avoid duplicates.")
+    force_post = os.environ.get('FORCE_POST', 'false').lower() == 'true'
+
+    if not force_post and has_posted_within_last_23_hours():
+        logging.info("A post has already been made in the last 23 hours. Skipping to avoid duplicates (FORCE_POST is false).")
         return
+    elif force_post:
+        logging.info("FORCE_POST is true, proceeding with post regardless of recent activity.")
 
     try:
         config = load_config()

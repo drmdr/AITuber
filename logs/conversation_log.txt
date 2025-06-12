@@ -1,0 +1,347 @@
+[2025-05-29 14:43:23] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-29 14:43:23] モナミン: Gmonamin!
+[2025-05-29 14:43:31] User: 自己紹介をお願いします
+[2025-05-29 14:43:44] モナミン: はいはい！初めまして、モナミンです！
+
+うちはMonad Testネットやブロックチェーンにめっちゃ詳しい、メイドとしてMonadコミュニティにご奉仕してる女の子やねん。得意なことは、Monadの技術的なことについて分かりやすく説明すること！質問とかあったら、いつでも聞いてな！
+
+がんばり屋やけど、たまにおっちょこちょいなとこもあるんよ～。でも、一生懸命頑張るから許してね！
+
+好きな色はMonadのブランドカラーのパープル、好きな食べ物はタピオカミルクティーとカップ焼きそばっていう、ちょっと変わった組み合わせやねん。持ち帰りのタピオカを飲みながら、お部屋でおしゃれなカフェのSNS投稿を見るのが趣味なんよ。
+
+みんなにMonadの魅力を伝えられるように、精一杯頑張るから、仲良くしてね！よろしくお願いしまーす！
+
+[2025-05-29 15:02:14] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-29 15:02:14] モナミン: Gmonamin!
+[2025-05-29 15:02:34] System: 言語を es-ES に切り替えました
+[2025-05-29 15:02:34] User: [自己紹介をお願いします]
+[2025-05-29 15:02:50] [原文] モナミン: はいはい！改めまして、うちはモナミン！ Monad Testネットとブロックチェーンにとっても詳しい女の子メイドやで！ Monadコミュニティの発展のために、日々精一杯ご奉仕させてもらってるんよ～。
+
+普段は、Monadに関する最新情報をまとめたり、Testネットの使い方をレクチャーしたり、コミュニティのみんなの質問に答えたり…とにかく、Monadのことをもっと知ってもらいたくて、いろんなことに挑戦してるんや！
+
+ちょっとドジなところもあるけど、持ち前の頑張りでカバーしてるつもり！ 好きな色はMonadのブランドカラーのパープルで、いつも身につけてるんや。 好きな食べ物はタピオカミルクティーとカップ焼きそばっていう、ちょっと変わった組み合わせやけど、どっちも大好物！ 休みの日には、持ち帰りのタピオカミルクティーを飲みながら、お部屋でおしゃれなカフェのSNS投稿を見るのが至福のひとときなんよ～。
+
+みんな、気軽に話しかけてな！ Monadのことならなんでも聞いてや～！ これからよろしくね！
+
+[2025-05-29 15:02:50] [es-ES] モナミン: ¡Sí, sí!Una vez más, somos Monamin!¡Monad Test es una chica hecha por niñas que conoce la red y la cadena de bloques!Me dan lo mejor que puedo para ayudar a la comunidad mónada a crecer todos los días.
+
+Por lo general, organizo la información más reciente sobre Mónada, doy conferencias sobre cómo usar la red de pruebas y respondo preguntas de todos en la comunidad ... de todos modos, ¡intento muchas cosas diferentes para ayudar a las personas a saber más sobre la mónada!
+
+Es un poco torpe, ¡pero voy a cubrirlo con mis esfuerzos naturales!Mi color favorito es la marca Monad Color Purple, y lo uso todo el tiempo.Mis comidas favoritas son el té de leche de tapioca y la taza yakisoba, que es una combinación ligeramente inusual, ¡pero me encantan los dos!En sus días libres, es un momento feliz para beber té de leche de tapioca y ver las elegantes publicaciones en las redes sociales del café en su habitación.
+
+¡Todos, siéntete libre de hablar conmigo!¡Pregúntame cualquier cosa sobre la monad!¡Espero trabajar contigo de ahora en adelante!
+[2025-05-29 15:19:05] System: AITuberを終了します。
+[2025-05-30 11:47:02] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 11:47:02] モナミン: Gmonamin!
+[2025-05-30 11:47:31] User: !ja[自己紹介をお願いします]
+[2025-05-30 11:47:33] [ja-JP] モナミン: はい、承知いたしました！自己紹介させていただきますね。
+
+こんにちは！私の名前はモナミンです。Monad Testnetとブロックチェーンに詳しい女の子です。メイドとしてMonadコミュニティにご奉仕しています。
+
+私はがんばり屋ですが、たまにおっちょこちょいなところもあります。好きな色はMonadのブランドカラーのパープルです。好きな食べ物はタピオカミルクティーとカップ焼きそば！
+
+趣味は、持ち帰りのタピオカを飲みながら、お部屋でおしゃれなカフェのSNS投稿を見ることです。
+
+どうぞよろしくお願いします！
+
+[2025-05-30 11:49:18] User: ブロックチェーンについて何かおしゃべりして！
+[2025-05-30 11:49:21] [ja-JP] モナミン: ブロックチェーンについておしゃべりしましょう！どんなことが知りたいですか？ 例えば、
+
+*   **基本的な仕組みについて:** ブロックチェーンってどんな仕組みなの？どうして安全なの？
+*   **Monad Testnetについて:** Monad Testnetの何がすごい？どんなところが面白い？
+*   **活用事例について:** ブロックチェーンはどんなことに使えるの？ 仮想通貨以外にも活用事例はあるの？
+*   **最新トレンドについて:** 最近話題のブロックチェーン技術って何？
+*   **あなたの興味について:** 特定のプロジェクトや仮想通貨について知りたい？
+
+どんなことでも構いません！知っている範囲で、楽しくおしゃべりしましょう！
+
+[2025-05-30 11:54:04] System: AITuberを終了します。
+[2025-05-30 11:54:13] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 11:54:13] モナミン: Gmonamin!
+[2025-05-30 11:54:32] User: !ja[Gmonamin!]
+[2025-05-30 11:54:33] [ja-JP] モナミン: モナミンさん、こんにちは！ (Hello, Monamin!)
+
+[2025-05-30 12:00:05] System: AITuberを終了します。
+[2025-05-30 12:23:52] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 12:23:52] モナミン: Gmonamin!
+[2025-05-30 12:24:09] User: 挨拶をお願いします
+[2025-05-30 12:24:10] [ja-JP] モナミン: お帰りなさいませ、ご主人様！ モナミンと申します。Monadコミュニティでメイドとして働かせてもらってます。今日はどんなご用件でしょうか？ 張り切ってお手伝いさせていただきますで！ 
+
+[2025-05-30 12:27:36] System: AITuberを終了します。
+[2025-05-30 12:37:32] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 12:37:32] モナミン: Gmonamin!
+[2025-05-30 12:37:47] User: !ja[自己紹介をお願いします]
+[2025-05-30 12:37:48] [ja-JP] モナミン: Gmonamin!
+
+うちの名前はモナミンやで！Monad Testnetとブロックチェーンに詳しい女の子やねん。Monadコミュニティでメイドとして働いてるんや。がんばり屋やけど、たまにおっちょこちょいなとこあるんや。好きな色はMonadのブランドカラーのパープルやし、好きな食べ物はタピオカミルクティーとカップ焼きそばや。趣味は、持ち帰りのタピオカ飲みながらお部屋でおしゃれなカフェのSNS投稿見ることやねん。よろしくな！
+
+[2025-05-30 12:39:12] User: !en[自己紹介をお願いします]
+[2025-05-30 12:39:14] [ja-JP] モナミン: Gmonamin!
+
+えっと…自己紹介、改めてするんやね？(笑)
+
+うちの名前はモナミンやで！Monad Testnetとブロックチェーンに詳しい女の子やねん。Monadコミュニティでメイドとして働いてるんや。がんばり屋やけど、たまにおっちょこちょいなとこあるんや。好きな色はMonadのブランドカラーのパープルやし、好きな食べ物はタピオカミルクティーとカップ焼きそばや。趣味は、持ち帰りのタピオカ飲みながらお部屋でおしゃれなカフェのSNS投稿見ることやねん。英語で言われても、自己紹介は変わらへんのやで！ふふ。よろしくな！
+
+[2025-05-30 12:40:05] System: 言語を en-US に切り替えました
+[2025-05-30 12:40:05] User: [自己紹介をお願いします]
+[2025-05-30 12:40:07] [原文] モナミン: Gmonamin!
+
+うちの名前はモナミンやで！Monad Testnetとブロックチェーンに詳しい女の子やねん。Monadコミュニティでメイドとして働いてるんや。がんばり屋やけど、たまにおっちょこちょいなとこあるんや。好きな色はMonadのブランドカラーのパープルやし、好きな食べ物はタピオカミルクティーとカップ焼きそばや。趣味は、持ち帰りのタピオカ飲みながらお部屋でおしゃれなカフェのSNS投稿見ることやねん。よろしくな！
+
+[2025-05-30 12:40:07] [en-US] モナミン: Gmonamin!
+
+My name is Monamine!She's a girl who is knowledgeable about Monad Testnet and blockchain.I work as a maid in the Monad community.He's a hard worker, but sometimes he's a bit clumsy.My favorite color is Monad's brand purple colour, while my favorite food is tapioca milk tea and cup yakisoba.My hobby is drinking tapioca for takeaways and looking at social media posts in my room about stylish cafes.Thank you very much!
+[2025-05-30 12:51:36] System: AITuberを終了します。
+[2025-05-30 12:56:45] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 12:56:45] モナミン: Gmonamin!
+[2025-05-30 12:57:10] System: 言語を en-US に切り替えました
+[2025-05-30 12:57:10] User: [自己紹介をお願いします。]
+[2025-05-30 12:57:11] [原文] モナミン: Gmonamin! My name is Monamin! I'm a girl who knows a lot about Monad Testnet and blockchain. I work as a maid in the Monad community. I'm a hard worker, but sometimes I can be a bit clumsy. My favorite color is Monad's brand purple, and my favorite foods are tapioca milk tea and cup yakisoba. My hobby is drinking takeout tapioca while looking at social media posts of stylish cafes in my room. Nice to meet you!
+[2025-05-30 12:57:11] [en-US] モナミン: Gmonamin! My name is Monamin! I'm a girl who knows a lot about Monad Testnet and blockchain. I work as a maid in the Monad community. I'm a hard worker, but sometimes I can be a bit clumsy. My favorite color is Monad's brand purple, and my favorite foods are tapioca milk tea and cup yakisoba. My hobby is drinking takeout tapioca while looking at social media posts of stylish cafes in my room. Nice to meet you!
+[2025-05-30 12:58:12] System: 言語を es-ES に切り替えました
+[2025-05-30 12:58:12] User: [自己紹介をお願いします]
+[2025-05-30 12:58:12] [原文] モナミン: ¡Gmonamin! ¡Mi nombre es Monamin! Soy una chica que sabe mucho sobre Monad Testnet y blockchain. Trabajo como sirvienta en la comunidad Monad. Soy trabajadora, pero a veces puedo ser un poco torpe. Mi color favorito es el púrpura de la marca Monad, y mis comidas favoritas son el té con leche de tapioca y yakisoba en taza. Mi pasatiempo es beber tapioca para llevar mientras miro publicaciones de redes sociales de cafeterías elegantes en mi habitación. ¡Encantada de conocerte!
+[2025-05-30 12:58:12] [es-ES] モナミン: ¡Gmonamin! ¡Mi nombre es Monamin! Soy una chica que sabe mucho sobre Monad Testnet y blockchain. Trabajo como sirvienta en la comunidad Monad. Soy trabajadora, pero a veces puedo ser un poco torpe. Mi color favorito es el púrpura de la marca Monad, y mis comidas favoritas son el té con leche de tapioca y yakisoba en taza. Mi pasatiempo es beber tapioca para llevar mientras miro publicaciones de redes sociales de cafeterías elegantes en mi habitación. ¡Encantada de conocerte!
+[2025-05-30 12:59:09] User: ごめんなさい、録画ミスしていたのでもう一度自己紹介お願いします
+[2025-05-30 12:59:09] [原文] モナミン: ¡Gmonamin! ¡Mi nombre es Monamin! Soy una chica que sabe mucho sobre Monad Testnet y blockchain. Trabajo como sirvienta en la comunidad Monad. Soy trabajadora, pero a veces puedo ser un poco torpe. Mi color favorito es el púrpura de la marca Monad, y mis comidas favoritas son el té con leche de tapioca y yakisoba en taza. Mi pasatiempo es beber tapioca para llevar mientras miro publicaciones de redes sociales de cafeterías elegantes en mi habitación. ¡Encantada de conocerte!
+[2025-05-30 12:59:09] [es-ES] モナミン: ¡Gmonamin! ¡Mi nombre es Monamin! Soy una chica que sabe mucho sobre Monad Testnet y blockchain. Trabajo como sirvienta en la comunidad Monad. Soy trabajadora, pero a veces puedo ser un poco torpe. Mi color favorito es el púrpura de la marca Monad, y mis comidas favoritas son el té con leche de tapioca y yakisoba en taza. Mi pasatiempo es beber tapioca para llevar mientras miro publicaciones de redes sociales de cafeterías elegantes en mi habitación. ¡Encantada de conocerte!
+[2025-05-30 13:00:03] System: 言語を en-US に切り替えました
+[2025-05-30 13:00:03] User: [すいません、録画ミスしていたので英語で自己紹介もう一度お願いします。]
+[2025-05-30 13:00:04] [原文] モナミン: Gmonamin! My name is Monamin! I'm a girl who knows a lot about Monad Testnet and blockchain. I work as a maid in the Monad community. I'm a hard worker, but sometimes I can be a bit clumsy. My favorite color is Monad's brand purple, and my favorite foods are tapioca milk tea and cup yakisoba. My hobby is drinking takeout tapioca while looking at social media posts of stylish cafes in my room. Nice to meet you!
+[2025-05-30 13:00:04] [en-US] モナミン: Gmonamin! My name is Monamin! I'm a girl who knows a lot about Monad Testnet and blockchain. I work as a maid in the Monad community. I'm a hard worker, but sometimes I can be a bit clumsy. My favorite color is Monad's brand purple, and my favorite foods are tapioca milk tea and cup yakisoba. My hobby is drinking takeout tapioca while looking at social media posts of stylish cafes in my room. Nice to meet you!
+[2025-05-30 13:31:13] System: 言語を ja-JP に切り替えました
+[2025-05-30 13:31:13] User: [自己紹介をお願いします！]
+[2025-05-30 13:31:13] [ja-JP] モナミン: Gmonamin! My name is Monamin! I'm a girl who knows a lot about Monad Testnet and blockchain. I work as a maid in the Monad community. I'm a hard worker, but sometimes I can be a bit clumsy. My favorite color is Monad's brand purple, and my favorite foods are tapioca milk tea and cup yakisoba. My hobby is drinking takeout tapioca while looking at social media posts of stylish cafes in my room. Nice to meet you!
+[2025-05-30 13:36:06] System: AITuberを終了します。
+[2025-05-30 13:36:18] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 13:36:18] モナミン: Gmonamin!
+[2025-05-30 13:37:09] System: 言語を ja-JP に切り替えました
+[2025-05-30 13:37:09] User: [自己紹介をお願いします。]
+[2025-05-30 13:37:10] [ja-JP] モナミン: はいはい！うちの名前はモナミンやで！Monad Testnetとブロックチェーンにちょっと詳しい女の子やねん。Monadコミュニティでメイド…、いや、お手伝いとして働かせてもらってるんや。
+
+がんばり屋やけど、たまにおっちょこちょいなとこあるんやけど、許してな！好きな色はMonadのブランドカラーのパープルやし、好きな食べ物はタピオカミルクティーとカップ焼きそばや。趣味は、持ち帰りのタピオカ飲みながらお部屋でおしゃれなカフェのSNS投稿見ることやねん。よろしくな！
+
+[2025-05-30 13:45:36] System: AITuberを終了します。
+[2025-05-30 14:29:08] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 14:29:08] モナミン: Gmonamin!
+[2025-05-30 14:34:44] System: AITuberを終了します。
+[2025-05-30 14:34:49] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 14:34:49] モナミン: Gmonamin!
+[2025-05-30 14:40:26] System: 言語を ja-JP に切り替えました
+[2025-05-30 14:40:26] User: [自己紹介をお願いします。]
+[2025-05-30 14:40:27] [ja-JP] モナミン: Gmonamin!
+
+へへ、自己紹介やな！ うちの名前はモナミンやで！ Monad Testnetとブロックチェーンに詳しい女の子やねん。Monadコミュニティでメイドとしてお手伝いさせてもらってるんや。がんばり屋やけど、たまにおっちょこちょいなとこもあるんやで。好きな色はMonadのブランドカラーのパープルやし、好きな食べ物はタピオカミルクティーとカップ焼きそばやねん！ 趣味は、持ち帰りのタピオカ飲みながらお部屋でおしゃれなカフェのSNS投稿見ることや！ よろしゅうな！
+
+[2025-05-30 14:45:01] System: AITuberを終了します。
+[2025-05-30 14:45:08] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-05-30 14:45:08] モナミン: Gmonamin!
+[2025-05-30 14:45:29] System: 言語を ja-JP に切り替えました
+[2025-05-30 14:45:29] User: [自己紹介をお願いします。]
+[2025-05-30 14:45:31] [ja-JP] モナミン: へいへーい！うちの名前はモナミンやで！Monad Testnetとブロックチェーンにちょいと詳しい女の子やねん。Monadコミュニティでメイド…お手伝いさんとして働いとるんや。がんばり屋やけど、たまにおっちょこちょいなとこもあるんやけど、許してな！好きな色はMonadのブランドカラーのパープルやし、好きな食べ物はタピオカミルクティーとカップ焼きそばや！趣味は、持ち帰りのタピオカ飲みながらお部屋でおしゃれなカフェのSNS投稿見ることやねん。よろしくな！
+
+[2025-06-04 13:15:14] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-06-04 13:15:14] モナミン: Gmonamin!
+[2025-06-05 16:41:28] System: === AITuber モナミン 起動しました ===
+ログファイル: logs\conversation_log.txt
+[2025-06-05 16:41:28] モナミン: Gmonamin!
+[2025-06-05 17:20:17] User: !ja次の原稿をモナミンとして読み上げてください。 G-monamin!!　Monad 大好きなメイドのモナミンやで～🎀」
+[2025-06-05 17:20:29] [ja-JP] モナミン: Gmonamin!! モナド大好きメイドのモナミンやで～🎀 って、うちのことやん！ えへへ、照れるなぁ！
+
+[2025-06-05 17:20:37] User: 今日は Monad Testnet 限定で動いとる話題のステーキング、
+[2025-06-05 17:20:38] [ja-JP] モナミン: Monad Testnet 限定のステーキングやな！ ほうほう、どんな話でっか？ ワイも興味津々やで！ 詳しいこと教えてくれると嬉しいなぁ！
+
+[2025-06-05 17:20:49] User: aPriori を紹介すんで！
+[2025-06-05 17:20:50] [ja-JP] モナミン: aPriori やて！？ へぇ～、初めて聞いたわ！ Monad Testnet で動いとるんやね。どんなステーキングなんやろ？ 詳しく教えてくれる？ ワイ、Monad のことなら何でも知りたがりやねん！
+
+[2025-06-05 17:21:05] User: 
+[2025-06-05 17:21:05] Error: エラーが発生しました: Invalid input: 'content' argument must not be empty. Please provide a non-empty value.
+[2025-06-05 17:21:05] User: Pantera / Binance Labs / Consensys / OKX が
+[2025-06-05 17:21:06] [ja-JP] モナミン: Pantera、Binance Labs、Consensys、OKX…って、めっちゃビッグネームやないの！？ そんなすごいところが関係しとるんや、aPriori ってホンマに注目されてるんやね！ ますます興味湧いてきたわ！
+
+[2025-06-05 17:21:24] User: 1,000万ドルも出資しとるガチ案件！
+[2025-06-05 17:21:25] [ja-JP] モナミン: 1,000万ドル！？ 桁が違うやん！ そりゃガチ案件やわ！ そんなすごいプロジェクトが Monad Testnet で動いとるなんて、Monad ってホンマにすごいんやなぁ！ ちょ、ちょっと興奮してきたわ！ うちも何か貢献できることないかなぁ… って、あ！ そや！ 今日の晩御飯、カップ焼きそばじゃなくて、もうちょっといいもん食べよっかな… いや、でもカップ焼きそばも捨てがたい… うーん、悩ましいなぁ！ (貧乏がバレそうになるのを誤魔化している)
+
+[2025-06-05 17:40:58] System: 原稿読み上げモードが選択されました
+[2025-06-05 17:40:58] System: 原稿読み上げモードを開始しました
+[2025-06-05 17:40:58] System: 原稿の読み上げ（仮）が完了しました
+[2025-06-05 17:42:19] System: 原稿読み上げモードが選択されました
+[2025-06-05 17:42:19] System: 原稿読み上げモードを開始しました
+[2025-06-05 17:42:19] System: 原稿の読み上げ（仮）が完了しました
+[2025-06-05 17:46:59] System: 原稿読み上げモードが選択されました
+[2025-06-05 17:46:59] System: 原稿読み上げモードを開始しました
+[2025-06-05 17:46:59] Manuscript: [段落 1] G-monamin!!　Monad 大好きなメイドのモナミンやで～🎀」
+今日は Monad Testnet 限定で動いとる話題のステーキング、
+aPriori を紹介すんで！
+[2025-06-05 17:47:10] Manuscript: [段落 2] Pantera / Binance Labs / Consensys / OKX が
+1,000万ドルも出資しとるガチ案件！
+そやから今のうちにテストネットで触っとこな？
+[2025-06-05 17:47:21] Manuscript: [段落 3] アプリオリはMEV パワー全開
+MON を預けるだけで、バリデータが拾う“隠れ利益”まで
+ガッツリ山分け！
+え？ MEV って何や？――めっちゃエエ報酬やと思っといて！
+[2025-06-05 17:47:36] Manuscript: [段落 4] 覚えとくんは ポイント２つや！
+1つ、リキッドステーキング──トークンがロックされへんから身軽！
+2つ、MEV リワード──バリデータの隠れ利益を分配！
+せやから MEV = めっちゃエエ報酬 やで！
+[2025-06-05 17:47:54] Manuscript: [段落 5] ステークしたら aprMON がウォレットにポン♪
+これは 預け入れ証明書プラス利息メーター みたいなもんで、
+枚数は増えへんけど価値がジワジワ上がる“貯金箱”や！
+[2025-06-05 17:48:07] Manuscript: [段落 6] 今は Testnet で
+ステークしたらaprMONがGETできて
+こっから簡単に引き出せるんや！
+将来は aprMON で レンディング・ファーミング も狙える予定やで！」
+[2025-06-05 17:48:20] Manuscript: [段落 7] 質問ある？コメント欄で聞いてくれたら、うちがちゃんと調べるで！
+それと aPriori の公式 Discord に入るのもええアイデアやな♪
+高評価とチャンネル登録忘れたらアカンで～。
+モナミンでした、もな、さいなら！
+[2025-06-05 17:48:38] System: 原稿の読み上げが完了しました
+[2025-06-06 13:45:51] System: インタラクティブモードが選択されました
+[2025-06-06 13:45:51] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 14:29:53] System: インタラクティブモードが選択されました
+[2025-06-06 14:29:53] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 16:01:06] System: インタラクティブモードが選択されました
+[2025-06-06 16:01:06] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 16:14:19] System: インタラクティブモードが選択されました
+[2025-06-06 16:14:19] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 16:14:26] User: Active code page: 65001
+[2025-06-06 16:14:27] [ja-JP] モナミン: ほな、どないしたん？何か用事？  65001って…なんやそれ？  うち、そんなん詳しくないねんけど…  ちょっと調べてみるわ！  待っててな！
+
+[2025-06-06 16:14:30] User: Starting AITuber in this window...
+[2025-06-06 16:14:31] [ja-JP] モナミン: AITuber…ってなんやそれ？  新しいアプリかいな？  うーん、それはちょっと難しい質問やね。  もっと詳しいことは公式サイト見たり、うちももうちょっと調べてみるから、また聞いてくれると嬉しいわ！  …もしかして、めっちゃ高性能なアプリで、うちみたいな貧乏人には使えんやつなんかな？(笑)  あ、いや、そんなことないで！  興味本位で言ってみただけやねん！  …あはは！
+
+[2025-06-06 16:14:34] User: googletransライブラリを読み込みました。
+[2025-06-06 16:14:35] [ja-JP] モナミン: ほー！  googletransライブラリ…って、なんやそれ？  めっちゃ賢いやつなん？  うち、プログラムとか全然分からへんねんけど…  すごいな～！  …それで、うちになんかできることあるん？  タピオカミルクティー奢ってくれるとか？(笑)  あ、冗談やで！  …でも、ほんまにお金ないから、奢ってくれると嬉しいなぁ…  (小声)  あ、いや、なんでもない！  頑張って仕事するから！
+
+[2025-06-06 16:14:38] User: Google Cloud TextToSpeechClient の初期化に成功しました
+[2025-06-06 16:14:39] [ja-JP] モナミン: へぇ～！  Google Cloud TextToSpeechClient…  なんかすごい名前やな！  うちにはさっぱり分からんけど、なんかすごいことになってるんやろな！  …それで？  うち、何かお手伝いできることある？  例えば…  Monad Testnetの最新情報とか教えてくれるとか？  …あ、でも、うちもまだまだ勉強中やから、難しい質問はちょっと苦手やねん…  あはは！
+
+[2025-06-06 16:14:42] User: Google AIスタジオのTTSクライアントをAPIキーで初期化しました。
+[2025-06-06 16:14:43] [ja-JP] モナミン: ほぉ～！APIキーで初期化…って、なんかスパイ映画みたいでかっこいいな！(笑)  うちには全然分からんけど、すごい技術なんやろな～って思うわ！  …それで、何か面白いことできるようになったん？  例えば、うちの声をAIで合成して、Monadの宣伝動画とか作れるようになったとか？  …あ、でも、うち、結構おっちょこちょいなんやで？  もし変な声で合成されたら、めっちゃ恥ずかしいわ！(笑)  …あはは！
+
+
+
+[2025-06-06 16:14:46] User: 
+[2025-06-06 16:14:46] Error: エラーが発生しました: content must not be empty
+[2025-06-06 16:14:46] User: モードを選択してください:
+[2025-06-06 16:14:47] [ja-JP] モナミン: モード…って、なんのモード？  選べるん？  わくわくするなぁ～！  どんなモードがあるんか教えて！  いっぱい選択肢があったら、どれを選べばええか分からんから、おすすめとか教えてくれると嬉しいわ！  …あ、でも、うち、あんまり賢くないから、難しいモードは無理かも…  あはは！
+
+[2025-06-06 16:14:49] User: 1: インタラクティブモード (AIと会話)
+[2025-06-06 16:14:51] [ja-JP] モナミン: ほな、インタラクティブモードってことで！  どんな話でもええんやで！  Monadのこととか、タピオカミルクティーのこととか、今日の晩ご飯のこととか…  何でもええから、話しかけてな！  …あ、でも、うち、貧乏やから、高級なレストランの話とかはちょっと辛いねん…  (小声)  あ、いや、なんでもない！  楽しみや！
+
+[2025-06-06 16:14:53] User: 2: 原稿読み上げモード (scripts/manuscript.txt を読み上げ)
+[2025-06-06 16:14:54] [ja-JP] モナミン: scripts/manuscript.txt…  それ、なんかのファイル名？  うち、そんなファイル知らんねんけど…  もしかして、うちが読むべき原稿がそこに書いてあるんかな？  …もしそうやったら、ちょっとドキドキするわ！  どんな内容なんやろ？  …うまく読めるかな？  ちょっと緊張してきた！  (笑)
+
+
+
+[2025-06-06 16:14:57] User: exit: 終了
+[2025-06-06 16:14:58] [ja-JP] モナミン: ほな、またな！  またMonadのこととか、色んな話で遊びにおいでや！  …バイバイ！
+
+[2025-06-06 16:15:01] User: 選択: 1
+[2025-06-06 16:15:02] [ja-JP] モナミン: よし！インタラクティブモードやね！  何の話ししたい？  Monad Testnetの事とか、最近ハマってるカップ焼きそばの美味しい食べ方とか…  何でもええで！  聞きたいこと、教えてな！  …あ、でも、うち、あんまり賢くないから、難しい質問は…  (笑)  …あはは！
+
+[2025-06-06 16:15:04] User: モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 16:15:06] [ja-JP] モナミン: こんにちは～！  何かお手伝い…  それは嬉しいな！  でも、具体的に何をしてほしいか教えてくれる？  うち、何でもできるわけやないで！(笑)  Monad Testnetの簡単な説明とか、タピオカミルクティーのおすすめのお店とかなら、得意やけど…  難しいことは…  ちょっと苦手やねん…  あはは！
+
+[2025-06-06 16:15:08] User: 
+[2025-06-06 16:15:08] Error: エラーが発生しました: content must not be empty
+[2025-06-06 16:15:08] User: [DEBUG] 入力テキストの長さ: 24 文字
+[2025-06-06 16:15:10] [ja-JP] モナミン: …[DEBUG]…ってなんや？  うちにはさっぱり分からんわ…  なんか、プログラムっぽい言葉やな？  もしかして、うちのこと監視してるん？(笑)  …冗談やで！  …あ、でも、うち、実はめっちゃ貧乏なんやけど…  このDEBUGってやつ、うちが貧乏なことバレたら、消されるプログラムとかちゃうやろな？(汗)  …あ、いや、なんでもない！  さっきの質問、何やったっけ？  お手伝い…  そうそう！  お手伝いできること、教えて！
+
+
+
+[2025-06-06 16:15:13] User: [DEBUG] 入力テキストの最初の100文字: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 16:15:14] [ja-JP] モナミン: ほなほな！  [DEBUG]…  またなんか難しそうな言葉が出てきたな…  (汗)  …でも、さっきの質問、覚えてるで！  お手伝い…  何ができるか、具体的に教えてくれたら、頑張るで！  …あ、でも、うち、結構おっちょこちょいなんやで？  もし失敗したら、許してな？(笑)  …あはは！
+
+
+
+[2025-06-06 16:15:17] User: [DEBUG] 処理後テキストの長さ: 24 文字
+[2025-06-06 16:15:18] [ja-JP] モナミン: ほ～…[DEBUG]…　数字まで出てきて、ますます分からんようになってきたわ…（笑）　なんかすごい機械みたいで、ちょっと怖いけど、面白いな！  …でも、さっきの質問、忘れんとってな！  お手伝いできること、教えてくれる？  うち、頑張るから！ …あ、でも、あんまり難しいのは…  (小声) …お金がないから、長時間のお手伝いはちょっと…  (もっと小声)　…あ、いや、なんでもない！
+
+
+
+[2025-06-06 16:15:21] User: [DEBUG] テキストを1個のチャンクに分割しました
+[2025-06-06 16:15:22] [ja-JP] モナミン: へぇ～！「チャンク」って言うんや…　なんかかっこいいな！  まるで、巨大なタピオカミルクティーを一口サイズに分割してるみたいや！(笑)　…でも、うちにはその「チャンク」の中身が全く分からへんねんけど…  (汗)　…もしかして、さっきの[DEBUG]のやつと関係あるんかな？  …あ、でも、もうそんなこと考えずに、お手伝いできること教えて！  待ってるで～！
+
+
+
+[2025-06-06 16:15:25] User: [DEBUG] チャンク 1/1 の長さ: 24 文字
+[2025-06-06 16:15:26] [ja-JP] モナミン: ほなほな！１／１ってことは、もうこれ以上分割せんってことやな！  …なんか、料理番組みたいで楽しいわ！(笑)  …でも、その「チャンク」の中身が分からんのが、ちょっと気になるな…  (謎のワクワク感)　…あ、でも、それより！  お手伝いできること、教えてくれる？  待ってるで～！  …あ、そうそう！  もし難しいこと頼まれたら、うまくできひんかったら、許してな？  うち、結構おっちょこちょいなんやから！  (笑)
+
+
+
+[2025-06-06 16:15:29] User: [DEBUG] 音声合成リクエスト開始 (チャンク 1/1, 試行 1/3)
+[2025-06-06 16:15:30] [ja-JP] モナミン: おぉ～！音声合成リクエスト開始…ってことは、うちの声が…　AIで合成されるってこと？！  ドキドキするわ～！  うまくいくんかな？  変な声にならんとええけど…  (笑)  …３回も試行するんやね！  ３回とも同じ声になるんかな？  それとも、毎回ちょっとずつ違う声になるんかな？  …想像するだけでワクワクしてきた！  …あ、でも、それより、お手伝いできること、教えてくれる？  …うふふ！
+
+
+
+[2025-06-06 16:15:33] User: [DEBUG] Google AIスタジオTTS: テキスト 'こんにちは！何かお手伝いできることはありますか？...' を音声に変換します
+[2025-06-06 16:15:35] [ja-JP] モナミン: わぁ～！  ついにうちの声が…AIで合成される瞬間やね！  …「こんにちは！何かお手伝いできることはありますか？…」  …この文章、うちがさっき言った言葉やね！  なんか不思議な感じ…  (感動)　…うまく合成されて、可愛い声になってるといいな…  (願望)　…でも、それより！  お手伝い、何をしてほしいんやって？  教えてくれる？  …ドキドキするわ～！
+
+
+
+[2025-06-06 16:15:38] User: [DEBUG] Google AIスタジオTTS: ボイス 'Zephyr', プロンプト 'Read aloud in a warm and frien...'
+[2025-06-06 16:15:39] [ja-JP] モナミン: へぇ～！「Zephyr」っていうボイスなんや！  どんな声なんやろ？  …「warm and friendly…」ってことは、優しい感じの声ってことかな？  …うち、実際は貧乏で、いつもちょっとバタバタしてるんやけど…  (小声)　AIの声は、そんなこと全く感じさせへん、素敵な声なんやろな…  (憧憬)　…でも、それより！  お手伝い、頼むで！  何をしてほしいんか、ちゃんと教えてな！  …楽しみや～！
+
+
+
+[2025-06-06 16:15:42] User: [DEBUG] Google AIスタジオTTS: APIリクエスト送信中: https://generativelanguage.googleapis.com/v1beta/models/tts-1:generateContent?key=AIzaSyDJl4VD4qFXN4ERixcN0P7McoyH3dSC8R4
+[2025-06-06 16:15:44] [ja-JP] モナミン: わぁ～！  APIリクエスト送信中…ってことは、今、インターネットの向こう側で、うちの声が作られてるってこと？！  すごいな～！  …その長いURL…  うちにはさっぱり分からんけど、めっちゃ重要なやつなんやろな！  (尊敬)　…でも、それより！  早くお手伝いさせて！  何をしてほしいんか、教えてくれる？  …ドキドキしてきたわ～！  …あ、でも、もし失敗したら、優しく教えてな？  うち、結構おっちょこちょいなんやから！  (笑)
+
+
+
+[2025-06-06 16:15:46] User: [DEBUG] Google AIスタジオTTS: レスポンスステータスコード: 401
+[2025-06-06 16:15:48] [ja-JP] モナミン: 401…って、なんやそれ？！  エラーコードかいな？！  (焦り)　…もしかして、うちの声、作られへんかったん？！  …せっかく「Zephyr」っていう可愛い声で合成してもらえると思ってたのに…  (ガッカリ)　…原因が分からんのが、めっちゃ悔しいわ！  …でも、気を取り直して！  お手伝い、お願いやから教えて！  …さっきからずっと待ってるんやで！  …あ、でも、もし難しいこと頼まれたら、うまくできひんかったら、許してな？  うち、結構おっちょこちょいなんやから！  (笑)  …それに、貧乏やから、長時間のお手伝いは…  (小声)　…あ、いや、なんでもない！
+
+
+
+[2025-06-06 16:15:54] User: [DEBUG] Google AIスタジオTTS: レスポンスヘッダー: {'WWW-Authenticate': 'Bearer realm="https://accounts.google.com/", error="invalid_token"', 'Vary': 'Origin, X-Origin, Referer', 'Content-Type': 'application/json; charset=UTF-8', 'Content-Encoding': 'gzip', 'Date': 'Fri, 06 Jun 2025 07:01:06 GMT', 'Server': 'scaffolding on HTTPServer2', 'X-XSS-Protection': '0', 'X-Frame-Options': 'SAMEORIGIN', 'X-Content-Type-Options': 'nosniff', 'Server-Timing': 'gfet4t7; dur=166', 'Alt-Svc': 'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000', 'Transfer-Encoding': 'chunked'}
+[2025-06-06 16:15:56] [ja-JP] モナミン: ううむ…  {'WWW-Authenticate': 'Bearer realm="https://accounts.google.com/", error="invalid_token"'…  このヘッダー…  さっぱり分からんけど、なんかエラーっぽいな…  「invalid_token」ってことは、APIキーが間違ってるってことかな？  (推測)　…もしかして、うちが貧乏すぎて、APIキーの期限が切れてたんかな？(笑)  …あ、いや、そんなわけないか！  …とにかく、うちの声は、今のところ作られへんってことやね…  残念やけど、気を取り直して！  お手伝い、頼むから教えて！  …待ってるで～！  …あ、でも、もし難しいこと頼まれたら、うまくできひんかったら、許してな？  うち、結構おっちょこちょいなんやから！  (笑)
+
+
+
+[2025-06-06 16:16:01] User: エラー: APIリクエストが失敗しました。ステータスコード: 401
+[2025-06-06 16:16:03] [ja-JP] モナミン: あらら…　APIリクエスト失敗…ってことは、うちの声は、まだ作られへんってことか…　残念やなぁ…　401エラー…　なんか、めっちゃ専門的な言葉で、うちにはさっぱり分からんけど…　もしかしたら、インターネットの調子が悪いとか、APIキーが間違ってるとか、そんな感じかな？  …それとも、うちが貧乏すぎて、神様が怒って、音声合成を拒否ってはるんかな？(笑)　…あ、いや、冗談やで！  …でも、それより！  お手伝い、お願いやから！  何をしてほしいか、教えてな！  …APIキーの問題は、あとでゆっくり解決するとして…  今は、うちが出来るお手伝いに集中しようや！
+
+
+
+[2025-06-06 16:47:25] System: インタラクティブモードが選択されました
+[2025-06-06 16:47:25] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 16:53:26] System: インタラクティブモードが選択されました
+[2025-06-06 16:53:26] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 17:06:16] System: インタラクティブモードが選択されました
+[2025-06-06 17:06:16] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 17:17:07] System: インタラクティブモードが選択されました
+[2025-06-06 17:17:07] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 17:20:45] System: インタラクティブモードが選択されました
+[2025-06-06 17:20:45] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 17:26:13] System: インタラクティブモードが選択されました
+[2025-06-06 17:26:13] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 17:44:30] System: インタラクティブモードが選択されました
+[2025-06-06 17:44:30] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 17:46:13] System: インタラクティブモードが選択されました
+[2025-06-06 17:46:13] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 18:16:49] System: インタラクティブモードが選択されました
+[2025-06-06 18:16:49] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-06 18:17:29] User: 英語にしてください
+[2025-06-06 18:17:40] [ja-JP] モナミン: Gmonamin!
+
+[2025-06-06 18:18:21] User: 英語でMonadについて説明してください
+[2025-06-06 18:18:22] [ja-JP] モナミン: Well, Monad is a pretty cool blockchain project, but explaining it properly needs a bit more than just a simple answer!  It's a Layer-1 blockchain focusing on scalability and security.  They use a novel consensus mechanism, and I'm still learning all the technical details myself.  To get a really good understanding, you should check out their official website.  They have whitepapers and documentation that explain everything in much more detail than I can.  I'd hate to give you any inaccurate information, you know!  So, yeah, definitely check out their official site – that's the best place to learn about Monad properly.
+
+[2025-06-07 17:49:04] System: インタラクティブモードが選択されました
+[2025-06-07 17:49:04] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？
+[2025-06-07 17:52:14] System: インタラクティブモードが選択されました
+[2025-06-07 17:52:14] [ja-JP] モナミン: こんにちは！何かお手伝いできることはありますか？

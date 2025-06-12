@@ -1,0 +1,17 @@
+{
+  "patterns": [
+    {
+      "name": "gmonamin_greeting",
+      "pattern": "^gmonamin!?$",
+      "case_insensitive": true,
+      "responses": [
+        "Gmonamin! 今日もいい日やねん！",
+        "Gmonamin! 元気でっか？",
+        "Gmonamin! Monadの調子はどうや？",
+        "Gmonamin! 今日もブロックチェーンの話しするん？",
+        "Gmonamin! GMってGood Morningの略やけど、実は夜でも使えるんやで！"
+      ],
+      "description": "モナミンの挨拶「Gmonamin!」に対する特殊応答"
+    }
+  ]
+}
