@@ -16,3 +16,8 @@ pillow==11.0.0
 pyyaml==6.0.2
 tqdm==4.67.1
 openai-whisper==20240930
+tweepy
+gspread
+google-auth
+google-generativeai
+pytz
