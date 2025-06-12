@@ -58,18 +58,29 @@ def load_config():
             config['x_poster']['google_sheets']['credentials_file'] = config_creds_file
             logging.info(f"Using credentials_file from config.json: {config_creds_file}")
 
-        # Load spreadsheet_id: prioritize SPREADSHEET_ID env var, then config.json
+        # Load spreadsheet_id: prioritize SPREADSHEET_ID env var, then config file
         env_spreadsheet_id = os.environ.get('SPREADSHEET_ID')
+        
+        # Try to get spreadsheet_id from the new location first, then fallback for compatibility
         config_spreadsheet_id = config.get('x_poster', {}).get('google_sheets', {}).get('spreadsheet_id')
+        if not config_spreadsheet_id:
+            config_spreadsheet_id = config.get('x_poster', {}).get('spreadsheet_id') # Fallback for older config structure
+            if config_spreadsheet_id:
+                logging.info("Found 'spreadsheet_id' directly under 'x_poster'. Consider moving it under 'x_poster.google_sheets' for consistency.")
+
+        # Ensure the google_sheets object exists before assigning to it
+        if 'google_sheets' not in config['x_poster']:
+            config['x_poster']['google_sheets'] = {}
+            
         if env_spreadsheet_id:
             config['x_poster']['google_sheets']['spreadsheet_id'] = env_spreadsheet_id
             logging.info(f"Using SPREADSHEET_ID environment variable for spreadsheet_id: {env_spreadsheet_id}")
-        elif config_spreadsheet_id: # Ensure it's not None if env_spreadsheet_id is not set
+        elif config_spreadsheet_id:
             config['x_poster']['google_sheets']['spreadsheet_id'] = config_spreadsheet_id
-            logging.info(f"Using spreadsheet_id from config.json: {config_spreadsheet_id}")
-        else: # Neither env var nor config.json has it
-            config['x_poster']['google_sheets']['spreadsheet_id'] = None # Explicitly set to None if not found
-            logging.info("spreadsheet_id not found in environment variables or config.json")
+            logging.info(f"Using spreadsheet_id from config file: {config_spreadsheet_id}")
+        else:
+            config['x_poster']['google_sheets']['spreadsheet_id'] = None
+            logging.info("spreadsheet_id not found in environment variables or config file.")
 
         # Validate essential keys after potential overrides
         if not config.get('gemini_api_key'):
