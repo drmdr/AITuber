@@ -1,9 +1,0 @@
-name: Tweet Test WF 2
-
-on: { workflow_dispatch: {} }
-
-jobs:
-  just_echo:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo OK
