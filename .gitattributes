@@ -1,0 +1,3 @@
+# Enforce LF for YAML so GitHub Actions parses correctly
+*.yml text eol=lf
+*.yaml text eol=lf
