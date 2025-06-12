@@ -42,9 +42,21 @@ def load_config():
 
         if 'google_sheets' not in config['x_poster']:
             config['x_poster']['google_sheets'] = {}
-        # Use environment variable for credentials file path if set, otherwise use config
-        # This allows GitHub Actions to use a specific path for the credentials file it creates
-        config['x_poster']['google_sheets']['credentials_file'] = os.environ.get('GS_CREDENTIALS_FILE_PATH', config.get('x_poster', {}).get('google_sheets', {}).get('credentials_file'))
+        # Determine the Google Sheets credentials file path
+        # Priority: GOOGLE_APPLICATION_CREDENTIALS > GS_CREDENTIALS_FILE_PATH > config.json
+        google_creds_env = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+        gs_creds_file_path_env = os.environ.get('GS_CREDENTIALS_FILE_PATH')
+        config_creds_file = config.get('x_poster', {}).get('google_sheets', {}).get('credentials_file')
+
+        if google_creds_env:
+            config['x_poster']['google_sheets']['credentials_file'] = google_creds_env
+            logging.info(f"Using GOOGLE_APPLICATION_CREDENTIALS for credentials_file: {google_creds_env}")
+        elif gs_creds_file_path_env:
+            config['x_poster']['google_sheets']['credentials_file'] = gs_creds_file_path_env
+            logging.info(f"Using GS_CREDENTIALS_FILE_PATH for credentials_file: {gs_creds_file_path_env}")
+        else:
+            config['x_poster']['google_sheets']['credentials_file'] = config_creds_file
+            logging.info(f"Using credentials_file from config.json: {config_creds_file}")
 
         # Validate essential keys after potential overrides
         if not config.get('gemini_api_key'):
