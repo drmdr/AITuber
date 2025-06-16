@@ -167,7 +167,7 @@ def get_services_from_sheet(config):
 
 # --- AI Comment Generation ---
 def generate_ai_comment(config, service_name, service_description, max_length_for_japanese_comment):
-    """Generates a bilingual (JA/EN) comment using Gemini AI based on character persona."""
+    """Generates a bilingual (JA/EN) comment and categorizes the service using Gemini AI."""
     try:
         genai.configure(api_key=config['gemini_api_key'])
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
@@ -177,19 +177,25 @@ def generate_ai_comment(config, service_name, service_description, max_length_fo
 
         prompt = f"""
 あなたは「{character_name}」という名前のVTuberです。
-以下のペルソナと指示に従って、与えられたNFTサービスに関する日本語のコメントは、必ず{max_length_for_japanese_comment}文字以内に収めてください。短く、キャッチーな内容を心がけてください。
-英語のコメントも、同様に簡潔にしてください。
+以下のペルソナと指示に従って、与えられたサービスに関する分析とコメント作成を行ってください。
 
 # ペルソナ
 {persona}
 
 # 指示
-- サービス概要を単に要約するのではなく、あなた自身の言葉でそのNFTの魅力や面白い点を解説してください。
-- 「このNFTめっちゃ欲しいわ」「絶対集めたい！」のように、あなたの欲求や感情を表現してください。
-- 「持ってる人いる？」「みんなはどう思う？」のように、フォロワーに質問を投げかけ、コメントを促してください。
-- あなたのペルソナ（関西弁など）を完全に維持してください。
-- コメント本文に「Gmonamin」などの挨拶は含めないでください。
-- 日本語のコメントは70〜100文字程度、英語のコメントは150〜200文字程度で作成してください。
+1.  **カテゴリ分類**: 与えられたサービスが以下のどれに最も当てはまるか判断してください。
+    - NFT (NFTコレクション、NFTマーケットプレイスなど)
+    - Webサービス (一般的なWebアプリケーション、ツールなど)
+    - DApp (分散型アプリケーション)
+    - その他 (上記に当てはまらないプロジェクトや技術など)
+2.  **コメント作成**: 
+    - サービス概要を単に要約するのではなく、あなた自身の言葉でそのサービスの魅力や面白い点を解説してください。
+    - 「これめっちゃ欲しいわ」「絶対使いたい！」のように、あなたの欲求や感情を表現してください。
+    - 「持ってる人いる？」「みんなはどう思う？」のように、フォロワーに質問を投げかけ、コメントを促してください。
+    - あなたのペルソナ（関西弁など）を完全に維持してください。
+    - コメント本文に「Gmonamin」などの挨拶は含めないでください。
+    - 日本語のコメントは、必ず**{max_length_for_japanese_comment}文字以内**に収めてください。短く、キャッチーな内容を心がけてください。
+    - 英語のコメントも、同様に簡潔にしてください。
 
 # 対象サービス
 サービス名: {service_name}
@@ -198,6 +204,7 @@ def generate_ai_comment(config, service_name, service_description, max_length_fo
 # 出力形式
 必ず以下のJSON形式で回答してください。他のテキストは一切含めないでください。
 {{
+  "category": "ここにカテゴリを記述 (NFT, Webサービス, DApp, その他)",
   "ja": "ここに日本語のコメントを記述",
   "en": "ここに英語のコメントを記述"
 }}
@@ -212,19 +219,20 @@ def generate_ai_comment(config, service_name, service_description, max_length_fo
         if cleaned_response.endswith("```"):
             cleaned_response = cleaned_response[:-3]
 
-        comment_data = json.loads(cleaned_response)
+        ai_data = json.loads(cleaned_response)
 
-        if isinstance(comment_data, dict) and 'ja' in comment_data and 'en' in comment_data:
-            logging.info(f"Successfully generated AI comments: {comment_data}")
-            return comment_data
+        if isinstance(ai_data, dict) and 'category' in ai_data and 'ja' in ai_data and 'en' in ai_data:
+            logging.info(f"Successfully generated AI data: {ai_data}")
+            return ai_data
         else:
-            logging.error(f"AI response was not in the expected format: {comment_data}")
+            logging.error(f"AI response was not in the expected format: {ai_data}")
             raise ValueError("AI response format error.")
 
     except Exception as e:
         logging.error(f"Error generating AI comment: {e}")
-        # Return a bilingual fallback comment
+        # Return a bilingual fallback comment with a default category
         return {
+            "category": "サービス",
             "ja": "今日はこのサービスに注目やで！",
             "en": "Let's check out this service today!"
         }
@@ -314,31 +322,39 @@ def run_post_job():
     service_description = selected_service['description']
 
     greeting_text = config.get('greeting', 'Gmonamin!')
-    service_intro_text = f"今日の注目NFTは「{service_name}」やで！"
     hashtags_text = "#Monad #AITuber #Monamin" # ハッシュタグをここで定義
 
-    # 固定部分の長さを計算 (改行も文字数としてカウント)
-    # ツイート構造: greeting\n\nservice_intro\n\nai_comment\n\nhashtags
-    fixed_parts_length = len(greeting_text) + len("\n\n") + len(service_intro_text) + len("\n\n") + len("\n\n") + len(hashtags_text)
+    # 仮の紹介文でAIプロンプト用の文字数計算を行う
+    temp_intro_text = f"今日の注目サービスは「{service_name}」やで！"
+    fixed_parts_length = len(greeting_text) + len("\n\n") + len(temp_intro_text) + len("\n\n") + len("\n\n") + len(hashtags_text)
     max_chars_for_ai_ja = 140 - fixed_parts_length
 
-    if max_chars_for_ai_ja < 10: # AIコメント用の文字数が少なすぎる場合のフォールバック
+    if max_chars_for_ai_ja < 10:
         logging.warning(f"Calculated max length for AI comment is very short ({max_chars_for_ai_ja}). Setting to a minimum of 10.")
         max_chars_for_ai_ja = 10
 
     logging.info(f"Max length for Japanese AI comment calculated as: {max_chars_for_ai_ja} characters.")
 
-    ai_comments = generate_ai_comment(config, service_name, service_description, max_chars_for_ai_ja)
-    ai_comment_ja = ai_comments.get('ja', "注目やで！")
-    ai_comment_en = ai_comments.get('en', "Check it out!")
+    ai_data = generate_ai_comment(config, service_name, service_description, max_chars_for_ai_ja)
+    category = ai_data.get('category', 'サービス')
+    ai_comment_ja = ai_data.get('ja', "注目やで！")
+    ai_comment_en = ai_data.get('en', "Check it out!")
 
-    # hashtags_text は上で定義済み
+    # カテゴリに基づいて紹介文を決定
+    intro_text_map_ja = {
+        "NFT": f"今日の注目NFTは「{service_name}」やで！",
+        "Webサービス": f"今日の注目Webサービスは「{service_name}」やで！",
+        "DApp": f"今日の注目DAppは「{service_name}」やで！",
+        "その他": f"今日の注目プロジェクトは「{service_name}」やで！",
+        "サービス": f"今日の注目サービスは「{service_name}」やで！" # フォールバック用
+    }
+    service_intro_text = intro_text_map_ja.get(category, intro_text_map_ja["サービス"])
 
     # --- Part 1: Japanese Tweet ---
-    logging.info("Constructing Japanese tweet...")
-    japanese_tweet_text = f"""{config.get('greeting', 'Gmonamin!')}
+    logging.info(f"Constructing Japanese tweet with category: {category}...")
+    japanese_tweet_text = f"""{greeting_text}
 
-今日の注目NFTは「{service_name}」やで！
+{service_intro_text}
 
 {ai_comment_ja}
 
@@ -357,8 +373,16 @@ def run_post_job():
 
     # --- Part 2: English Tweet ---
     logging.info("Constructing English tweet...")
+    intro_text_map_en = {
+        "NFT": f"Today's featured NFT is \"{service_name}\"",
+        "Webサービス": f"Today's featured Web Service is \"{service_name}\"",
+        "DApp": f"Today's featured DApp is \"{service_name}\"",
+        "その他": f"Today's featured project is \"{service_name}\"",
+        "サービス": f"Today's featured service is \"{service_name}\"" # Fallback
+    }
+    service_intro_text_en = intro_text_map_en.get(category, intro_text_map_en["サービス"])
     hashtags_en = "#Monad #AITuber #Monamin_EN"
-    tweet_en = f"""Gmonamin! Today's featured NFT is \"{service_name}\"!
+    tweet_en = f"""Gmonamin! {service_intro_text_en}!
 
 {ai_comment_en}
 

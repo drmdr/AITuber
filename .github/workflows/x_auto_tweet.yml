@@ -27,13 +27,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r x_poster/requirements.txt
 
-      - name: Debug Info
-        run: |
-          echo "--- Installed Packages ---"
-          pip list
-          echo "--- Project Structure ---"
-          ls -R
-
       - name: Restore Google credentials
         env:
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
