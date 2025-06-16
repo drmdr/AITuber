@@ -9,20 +9,34 @@ import logging
 import os
 from datetime import datetime, timedelta
 import pytz
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Configuration Loading ---
-def find_config_file():
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for name in ["config.local.json", "config.public.json", "config.json"]:
-        candidate = os.path.join(base_dir, name)
-        if os.path.exists(candidate):
-            return candidate
-    raise FileNotFoundError("No config file found (tried config.local.json, config.public.json, config.json)")
+# Define base_dir for constructing paths relative to the project root
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-CONFIG_FILE = find_config_file()
+# Load environment variables from .env file
+# Construct the full path to the .env file in the project root
+dotenv_path = os.path.join(base_dir, '.env')
+logging.info(f"Checking .env file at: {dotenv_path}")
+logging.info(f".env file exists: {os.path.exists(dotenv_path)}")
+logging.info(f".env file readable: {os.access(dotenv_path, os.R_OK)}")
+dotenv_loaded = load_dotenv(dotenv_path=dotenv_path)
+logging.info(f"dotenv_loaded from {dotenv_path}: {dotenv_loaded}")
+logging.info(f"GOOGLE_APPLICATION_CREDENTIALS after dotenv: {os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')}")
+logging.info(f"GEMINI_API_KEY after dotenv: {os.environ.get('GEMINI_API_KEY')}")
+logging.info(f"SPREADSHEET_ID after dotenv: {os.environ.get('SPREADSHEET_ID')}")
+
+# --- Configuration Loading ---
+# This script is for the X Poster system, which uses config.public.json.
+# We will load it directly to avoid conflicts with config.local.json (for AITuber) or config.json.
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIG_FILE = os.path.join(base_dir, "config.public.json")
+logging.info(f"Attempting to load configuration from: {CONFIG_FILE}")
+if not os.path.exists(CONFIG_FILE):
+    raise FileNotFoundError(f"{CONFIG_FILE} not found. This file is required for the X Poster script.")
 
 def load_config():
     """Loads configuration from config.json and environment variables."""
@@ -83,6 +97,8 @@ def load_config():
             logging.info("spreadsheet_id not found in environment variables or config file.")
 
         # Validate essential keys after potential overrides
+        # Log the value read for gemini_api_key
+        logging.info(f"DEBUG: Configured gemini_api_key from config/env: {config.get('gemini_api_key')}")
         if not config.get('gemini_api_key'):
             raise ValueError("Missing 'gemini_api_key' in config or environment variables.")
         if not config.get('x_poster', {}).get('api_key') or \
@@ -92,6 +108,11 @@ def load_config():
             raise ValueError("Missing X API credentials in config or environment variables.")
         if not config.get('x_poster', {}).get('google_sheets', {}).get('credentials_file'):
             raise ValueError("Missing 'credentials_file' for Google Sheets in config or environment variables.")
+        # Log the values read from config for critical google_sheets settings
+        gs_config_from_file = config.get('x_poster', {}).get('google_sheets', {})
+        logging.info(f"DEBUG: Configured credentials_file from config.json: {gs_config_from_file.get('credentials_file')}")
+        logging.info(f"DEBUG: Configured spreadsheet_id from config.json: {gs_config_from_file.get('spreadsheet_id')}")
+
         if not config.get('x_poster', {}).get('google_sheets', {}).get('spreadsheet_id'):
             raise ValueError("Missing 'spreadsheet_id' for Google Sheets in config.")
         if 'character_name' not in config or 'persona' not in config or 'greeting' not in config:

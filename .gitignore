@@ -2,6 +2,7 @@
 env/
 venv/
 .env
+*.env
 
 # キャッシュファイル
 __pycache__/
