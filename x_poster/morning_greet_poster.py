@@ -175,6 +175,22 @@ def generate_ai_comment(config, service_name, service_description, max_length_fo
         character_name = config.get('character_name', 'AI')
         persona = config.get('persona', '')
 
+        # --- 簡易的なカテゴリ判定ロジック --- #
+        # サービス概要に基づいて、NFT関連かそれ以外かを大まかに判定
+        is_nft_related = False
+        nft_keywords = ["nft", "トークン", "token", "collectible", "mint", "ミント", "コレクション"] # NFT関連キーワード
+        for keyword in nft_keywords:
+            if keyword in service_description.lower(): # 小文字に統一して比較
+                is_nft_related = True
+                break
+        logging.info(f"簡易カテゴリ判定結果 (NFT関連か): {is_nft_related} for service: {service_name}")
+
+        # --- プロンプトの質問部分を動的に変更 --- #
+        if is_nft_related:
+            question_prompt = "「持ってる人いる？」「ミントした？」のように、フォロワーに質問を投げかけ、コメントを促してください。"
+        else:
+            question_prompt = "「使ったことある？」「みんなはどう思う？」のように、フォロワーに質問を投げかけ、コメントを促してください。"
+
         prompt = f"""
 あなたは「{character_name}」という名前のVTuberです。
 以下のペルソナと指示に従って、与えられたサービスに関する分析とコメント作成を行ってください。
@@ -191,7 +207,7 @@ def generate_ai_comment(config, service_name, service_description, max_length_fo
 2.  **コメント作成**: 
     - サービス概要を単に要約するのではなく、あなた自身の言葉でそのサービスの魅力や面白い点を解説してください。
     - 「これめっちゃ欲しいわ」「絶対使いたい！」のように、あなたの欲求や感情を表現してください。
-    - 「持ってる人いる？」「みんなはどう思う？」のように、フォロワーに質問を投げかけ、コメントを促してください。
+    - {question_prompt}  # ここで動的に質問文言を挿入
     - あなたのペルソナ（関西弁など）を完全に維持してください。
     - コメント本文に「Gmonamin」などの挨拶は含めないでください。
     - 日本語のコメントは、必ず**{max_length_for_japanese_comment}文字以内**に収めてください。短く、キャッチーな内容を心がけてください。
