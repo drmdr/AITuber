@@ -3,5 +3,6 @@ gspread
 google-auth
 google-generativeai
 requests
+google-cloud-aiplatform
 pytz
 python-dotenv

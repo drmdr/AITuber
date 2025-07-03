@@ -48,14 +48,16 @@
       "spreadsheet_id": "",
       "sheet_name": "シート1",
       "service_name_column": "サービス名",
-      "service_description_column": "サービス概要"
+      "service_description_column": "サービス概要",
+      "google_cloud_project_id": "737410221351"
     },
     "morning_greeting": {
       "enabled": true,
       "post_time": "08:00",
       "timezone": "Asia/Tokyo",
       "image_generation_enabled": true
-    }
+    },
+    "character_description": "A female AITuber character with long, glittery purple hair styled into twin tails and buns, and straight bangs. She has large, expressive purple eyes with white, glowing pupils. She is wearing a classic maid outfit, consisting of a dark purple dress, a white apron with ruffles, a white ruffled headdress, and a small black bow at her neck. She is also wearing black stockings."
   },
   "templates": {
     "self_introduction": {

@@ -5,6 +5,8 @@ import tweepy
 import gspread
 from google.oauth2.service_account import Credentials
 import google.generativeai as genai
+import vertexai
+from vertexai.preview.vision_models import ImageGenerationModel, Image
 import logging
 import os
 from datetime import datetime, timedelta
@@ -12,6 +14,8 @@ import pytz
 from dotenv import load_dotenv
 from pathlib import Path
 import requests
+import vertexai
+from vertexai.vision_models import ImageGenerationModel, Image
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -52,6 +56,8 @@ def load_config():
         google_creds_env = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
         if google_creds_env:
             gs_config['credentials_file'] = google_creds_env
+
+        gs_config['google_cloud_project_id'] = os.environ.get('GOOGLE_CLOUD_PROJECT_ID', gs_config.get('google_cloud_project_id'))
         
         env_spreadsheet_id = os.environ.get('SPREADSHEET_ID')
         if env_spreadsheet_id:
@@ -68,6 +74,11 @@ def load_config():
             raise ValueError("Missing X API credentials")
         if not gs_config.get('credentials_file'): raise ValueError("Missing 'credentials_file' for Google Sheets")
         if not gs_config.get('spreadsheet_id'): raise ValueError("Missing 'spreadsheet_id' for Google Sheets")
+        if morning_greet_config['image_generation_enabled']:
+            if not gs_config.get('google_cloud_project_id'):
+                raise ValueError("Missing 'google_cloud_project_id' for Vertex AI Image Generation")
+            if not x_poster_config.get('character_description'):
+                raise ValueError("Missing 'character_description' in config for image generation")
         
         return config
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
@@ -150,45 +161,53 @@ def generate_ai_comment(config, service_name, service_description, max_length_fo
         return {"category": "サービス", "ja": "今日はこのサービスに注目やで！", "en": "Let's check out this service today!"}
 
 def generate_and_save_image(config, text_prompt, character_name, persona, service_name):
-    """Generates an image using Gemini and saves it to a temporary file."""
+    """Generates an image using Vertex AI Imagen based on a detailed text prompt and saves it to a temporary file."""
+    project_id = config['x_poster']['google_sheets']['google_cloud_project_id']
+    location = "asia-northeast1"
+    
     try:
-        genai.configure(api_key=config['gemini_api_key'])
-        model = genai.GenerativeModel('gemini-1.5-pro-latest')
-        
-        image_prompt = f"""
-        あなたは「{character_name}」という名前のVTuberです。以下のペルソナ、ツイート内容、特別指示を参考に、魅力的で鮮やかなアニメスタイルのイラストを生成してください。
+        vertexai.init(project=project_id, location=location)
+        logging.info("Vertex AI initialized successfully.")
 
-        # ペルソナ
-        {persona}
+        model = ImageGenerationModel.from_pretrained("imagegeneration@006")
 
-        # ツイート内容
-        {text_prompt}
+        # Load character description from config
+        character_description = config['x_poster']['character_description']
 
-        # 特別指示
-        - 全体的なメインカラーは「紫色」を基調にしてください。
-        - あなたのキャラクター「{character_name}」（愛称：モナミン）を必ず登場させてください。もし難しい場合は、モナミンに似たかわいい動物キャラクターにしてください。
-        - ツイートで言及しているサービス「{service_name}」のロゴや、それを象徴するようなマークをイラストのどこかに含めることを試みてください。これは必須ではありませんが、可能であればお願いします。
-        - ポジティブで、活気があり、ツイートのテーマに合った情景を描いてください。キャラクターが楽しそうにしている様子を含めてください。
-        - イラストのスタイルは、日本の可愛いアニメや漫画のスタイルでお願いします。
-        """
+        # Construct a more detailed prompt
+        full_prompt = (
+            f"A high-quality, anime-style digital illustration of '{character_name}'. "
+            f"Character details: {character_description}. "
+            f"Her persona is: {persona}. "
+            f"The scene is related to the service '{service_name}'. "
+            f"The character should be the main focus, looking happy and engaging with the viewer. "
+            f"The overall mood is cheerful and friendly. "
+            f"The main color scheme should be purple. "
+            f"Additional context for the scene: {text_prompt}"
+        )
+
+        logging.info(f"Generating image with prompt: {full_prompt}")
+
+        # Generate the image using only a text prompt
+        images = model.generate_images(
+            prompt=full_prompt,
+            number_of_images=1,
+            # You can add other parameters like seed, guidance_scale etc.
+        )
         
-        logging.info(f"Generating image with Gemini with prompt: {image_prompt}")
-        response = model.generate_content(image_prompt, generation_config={"response_mime_type": "image/png"})
+        if not images:
+            logging.error("Image generation failed. No images were returned.")
+            return None
+
+        # Save the first generated image to a temporary file
+        temp_image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
+        images[0].save(location=temp_image_path, include_generation_parameters=True)
         
-        image_data = response.parts[0].blob.data
-        
-        temp_dir = Path(__file__).parent / 'temp_images'
-        temp_dir.mkdir(exist_ok=True)
-        image_path = temp_dir / f"temp_image_{int(time.time())}.png"
-        
-        with open(image_path, 'wb') as f:
-            f.write(image_data)
-            
-        logging.info(f"Image saved temporarily to {image_path}")
-        return str(image_path)
+        logging.info(f"Image saved to temporary file: {temp_image_path}")
+        return temp_image_path
 
     except Exception as e:
-        logging.error(f"Error generating or saving image: {e}")
+        logging.error(f"An error occurred during image generation: {e}")
         return None
 
 # --- Twitter Posting ---
