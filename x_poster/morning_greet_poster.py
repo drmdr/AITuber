@@ -195,7 +195,7 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
             return None
 
         image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
-        response.images[0].save(location=image_path, include_generation_parameters=True)
+        response.images[0].save(location=image_path, include_generation_parameters=False)
         logging.info(f"Image saved to {image_path}")
         return image_path
 
