@@ -162,49 +162,42 @@ def generate_ai_comment(config, service_name, service_description, max_length_fo
 
 def generate_and_save_image(config, text_prompt, character_name, persona, service_name):
     """Generates an image using Vertex AI Imagen based on a detailed text prompt and saves it to a temporary file."""
-    project_id = config['x_poster']['google_sheets']['google_cloud_project_id']
-    location = "asia-northeast1"
-    
     try:
-        vertexai.init(project=project_id, location=location)
+        logging.info("Initializing Vertex AI...")
+        project_id = config['x_poster']['google_sheets']['google_cloud_project_id']
+        vertexai.init(project=project_id, location="us-central1")
         logging.info("Vertex AI initialized successfully.")
 
-        model = ImageGenerationModel.from_pretrained("imagegeneration@006")
-
-        # Load character description from config
-        character_description = config['x_poster']['character_description']
-
-        # Construct a more detailed prompt
-        full_prompt = (
+        character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
+        
+        prompt = (
             f"A high-quality, anime-style digital illustration of '{character_name}'. "
             f"Character details: {character_description}. "
             f"Her persona is: {persona}. "
-            f"The scene is related to the service '{service_name}'. "
             f"The character should be the main focus, looking happy and engaging with the viewer. "
-            f"The overall mood is cheerful and friendly. "
-            f"The main color scheme should be purple. "
-            f"Additional context for the scene: {text_prompt}"
+            f"Additional context for the scene: 今日の注目Appは「{service_name}」やで！ {text_prompt}"
         )
+        logging.info(f"Generating image with prompt: {prompt}")
 
-        logging.info(f"Generating image with prompt: {full_prompt}")
-
-        # Generate the image using only a text prompt
-        images = model.generate_images(
-            prompt=full_prompt,
-            number_of_images=1,
-            # You can add other parameters like seed, guidance_scale etc.
-        )
+        model = ImageGenerationModel.from_pretrained("imagegeneration@006")
         
-        if not images:
-            logging.error("Image generation failed. No images were returned.")
+        response = model.generate_images(
+            prompt=prompt,
+            number_of_images=1,
+        )
+
+        logging.info(f"Vertex AI response: {response}")
+
+        if not response.images:
+            logging.error("Image generation failed. The response contained no images. This might be due to safety filters.")
+            if hasattr(response, '_prediction_response') and response._prediction_response:
+                 logging.error(f"Prediction response details: {response._prediction_response}")
             return None
 
-        # Save the first generated image to a temporary file
-        temp_image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
-        images[0].save(location=temp_image_path, include_generation_parameters=True)
-        
-        logging.info(f"Image saved to temporary file: {temp_image_path}")
-        return temp_image_path
+        image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
+        response.images[0].save(location=image_path, include_generation_parameters=True)
+        logging.info(f"Image saved to {image_path}")
+        return image_path
 
     except Exception as e:
         logging.error(f"An error occurred during image generation: {e}")
