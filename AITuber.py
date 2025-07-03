@@ -1,244 +1,348 @@
 ############################################
-API_KEY="AIzaSyDJl4VD4qFXN4ERixcN0P7McoyH3dSC8R4"#←自分で入れてね♡
-import google.generativeai as genai
-import json # 追加
-genai.configure(api_key=API_KEY)
-
-from pathlib import Path
-from google.cloud import texttospeech
-# Google AIスタジオのTTSを使用するためのモジュールをインポート
-from google_aistudio_tts import GoogleAIStudioTTS
-# Google Cloud Translation APIの代わりにgoogletransを使用
-try:
-    from googletrans import Translator
-    translator = Translator()
-    print("googletrans library loaded successfully.")
-except ImportError:
-    print("googletransライブラリがインストールされていません。翻訳機能は使用できません。")
-    print("pip install googletrans==4.0.0-rc1 を実行してインストールしてください。")
-    translator = None
-
-import numpy as np
-import traceback # エラー追跡用
-import sounddevice as sd
-# import pytchat # ★コメントアウト
-import time 
-from time import sleep
+# AITuber メインスクリプト
+# このスクリプトは、AIキャラクターとの対話、音声合成、多言語対応機能を提供します。
+############################################
+import sys
+import io
 import os
-import random
-from datetime import datetime
-import re
 
+# モジュール検索パスにカレントディレクトリを追加
+sys.path.append(os.getcwd())
 
-# bert_models.load_model(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm")
-# bert_models.load_tokenizer(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm")
+# WindowsのコンソールでUnicode文字が正しく表示されるように標準出力をUTF-8に設定
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-# model_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\koharune-ami.safetensors"#←自分のpath
-# config_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\config.json"#←自分のpath
-# style_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\style_vectors.npy"#←自分のpath
+import json
+from pathlib import Path
 
-assets_root = Path("model_assets")
+# --- グローバル定数 --- #
+CONFIG_FILE_PATH = "config.local.json"  # ローカル設定ファイル
+RESPONSE_PATTERNS_FILE_PATH = "response_patterns.json" # 特殊応答パターンファイル
+LOG_DIR = "logs"  # ログディレクトリ
 
-# livechat = pytchat.create(video_id = "9JXQ1XvHz-k") # ★コメントアウト
-
-GEMINI_API_KEY = "YOUR_API_KEY"
-
-# 設定ファイルのパス設定
-CONFIG_FILE_PATH = "config.json"
-RESPONSE_PATTERNS_FILE_PATH = "response_patterns.json"
-
-# ログファイルのパス設定
-LOG_DIR = "logs"
-LOG_FILE_PATH = os.path.join(LOG_DIR, "conversation_log.txt")
-
-# ログディレクトリが存在しない場合は作成
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
-    
-# 言語設定
-DEFAULT_LANGUAGE = "ja-JP"  # デフォルト言語
-SUPPORTED_LANGUAGES = {
-    "ja": "ja-JP",  # 日本語
-    "en": "en-US",  # 英語
-    "es": "es-ES"   # スペイン語
-}
-
-# 言語コマンドの正規表現パターン
-LANGUAGE_COMMAND_PATTERN = r"^!(ja|en|es)\s+(.+)$"
-# 特殊応答パターンを読み込む関数
-def load_response_patterns():
-    try:
-        with open(RESPONSE_PATTERNS_FILE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"特殊応答パターンファイルの読み込みに失敗しました: {e}")
-        return {"patterns": []}
-
-# テンプレートを取得する関数
-def get_template(template_key, language_code="ja-JP"):
-    try:
-        # config.jsonからテンプレートを取得
-        with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
-            config_data = json.load(f)
-            
-        templates = config_data.get("templates", {})
-        template_group = templates.get(template_key, {})
-        
-        # 指定された言語のテンプレートがあれば返す
-        if language_code in template_group:
-            return template_group[language_code]
-        
-        # 言語コードの先頭部分だけでマッチするか確認
-        lang_prefix = language_code.split('-')[0]
-        for lang_code in template_group.keys():
-            if lang_code.startswith(lang_prefix):
-                return template_group[lang_code]
-        
-        # 日本語があればそれを返す
-        if "ja-JP" in template_group:
-            return template_group["ja-JP"]
-        
-        # 英語があればそれを返す
-        if "en-US" in template_group:
-            return template_group["en-US"]
-        
-        # どれもなければ最初のテンプレートを返す
-        if template_group:
-            return next(iter(template_group.values()))
-            
-    except Exception as e:
-        print(f"テンプレートの取得中にエラーが発生しました: {e}")
-    
-    return None
-
-# 自己紹介のパターンをチェックする関数
-def is_self_introduction_request(text):
-    # 自己紹介を要求するパターン
-    patterns = [
-        r'自己紹介',  # 自己紹介
-        r'あなた(に|は)ついて教えて',  # あなたについて教えて
-        r'自分(に|は)ついて教えて',  # 自分について教えて
-        r'introduce yourself',  # 英語の自己紹介要求
-        r'tell (me|us) about yourself',  # 英語の自己紹介要求
-        r'who are you',  # 英語の自己紹介要求
-        r'pres[eé]ntate',  # スペイン語の自己紹介要求
-        r'cu[eé]ntame sobre ti',  # スペイン語の自己紹介要求
-        r'qui[eé]n eres'  # スペイン語の自己紹介要求
-    ]
-    
-    for pattern in patterns:
-        if re.search(pattern, text.lower()):
-            return True
-    
-    return False
-
-# 特殊応答パターンに一致するか確認し、一致すれば応答を返す関数
-def check_special_response(text, patterns_data):
-    for pattern_info in patterns_data.get("patterns", []):
-        pattern_str = pattern_info.get("pattern", "")
-        case_insensitive = pattern_info.get("case_insensitive", False)
-        
-        if not pattern_str:
-            continue
-            
-        flags = re.IGNORECASE if case_insensitive else 0
-        pattern = re.compile(pattern_str, flags)
-        
-        if pattern.match(text.strip()):
-            responses = pattern_info.get("responses", [])
-            if responses:
-                return random.choice(responses)
-    
-    return None
-
+# --- APIキーの読み込み --- #
+GEMINI_API_KEY = None
 try:
-    with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
-        config = json.load(f)
-    character_name = config.get("character_name", "AITuber")
-    persona = config.get("persona", "あなたは親切なAIアシスタントです。")
-    greeting = config.get("greeting", "こんにちは！")
-    guidelines = config.get("guidelines", [])
-    
-    # ペルソナとガイドラインを組み合わせる
-    persona_intro = f"{persona} うち、話すときはいつもエセ関西弁やねん。"
-    full_persona = f"あなたは以下の設定のキャラクターとして応答してください。\n\n--- キャラクター設定 ---\n名前: {character_name}\n基本ペルソナ: {persona_intro}\n挨拶: {greeting}\n\n--- 応答ガイドライン ---\n"
-    for guideline in guidelines:
-        full_persona += f"- {guideline}\n"
-    full_persona += "--- 設定ここまで ---"
-except FileNotFoundError:
-    print(f"エラー: {CONFIG_FILE_PATH} が見つかりません。デフォルト設定を使用します。")
-    character_name = "AITuber"
-    persona = "あなたは親切なAIアシスタントです。"
-    greeting = "こんにちは！"
-    guidelines = ["必ずエセ関西弁で話してください。例：～やで、～やねん、～なんや、～やろ、～ちゃう？など。"]
-    full_persona = persona + "\n\nガイドライン:\n- " + guidelines[0] + "\n"
-except json.JSONDecodeError:
-    print(f"エラー: {CONFIG_FILE_PATH} の形式が正しくありません。デフォルト設定を使用します。")
-    character_name = "AITuber"
-    persona = "あなたは親切なAIアシスタントです。"
-    greeting = "こんにちは！"
-    guidelines = ["必ずエセ関西弁で話してください。例：～やで、～やねん、～なんや、～やろ、～ちゃう？など。"]
-    full_persona = persona + "\n\nガイドライン:\n- " + guidelines[0] + "\n"
-
-# Google Cloudの認証情報を確認する関数
-def check_gcp_credentials():
-    import os
-    cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if not cred_path:
-        print("\n\n\u8b66告: GOOGLE_APPLICATION_CREDENTIALS 環境変数が設定されていません\n")
-        print("以下のコマンドを実行して設定してください:")
-        print("$env:GOOGLE_APPLICATION_CREDENTIALS=\"C:\\path\\to\\your-credentials.json\"")
-        return False
-    elif not os.path.exists(cred_path):
-        print(f"\n\n\u8b66告: 認証情報ファイルが見つかりません: {cred_path}\n")
-        return False
-    return True
-
-# GCP TTSクライアントの初期化
-try:
-    # 認証情報を確認
-    if check_gcp_credentials():  # 認証情報が有効
-        try:
-            gcp_tts_client = texttospeech.TextToSpeechClient()
-            print("Google Cloud TextToSpeechClient initialized successfully.")
-        except Exception as e:
-            print("\n\nWarning: Failed to initialize Google Cloud TextToSpeechClient.\n")
-            print(f"エラーの詳細: {e}")
-            traceback.print_exc()
-            print("\n認証情報が有効であるか、GCPプロジェクトでText-to-Speech APIが有効になっているか確認してください\n")
-            print("音声なしで続行します\n")
-            gcp_tts_client = None
-except Exception as e:
-    print("\n\nWarning: An unexpected error occurred during Google Cloud authentication check.\n")
-    print(f"エラーの詳細: {e}")
-    traceback.print_exc()
-    print("音声なしで続行します\n")
-    gcp_tts_client = None
-    
-# Google AIスタジオのTTSクライアントの初期化
-try:
-    # 設定ファイルからAPIキーを読み込む
     with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
         config_data = json.load(f)
-    
-    tts_settings = config_data.get("tts_settings", {})
-    api_key = tts_settings.get("api_key", "")
-    
-    if api_key:
-        google_aistudio_tts_client = GoogleAIStudioTTS(api_key=api_key)
-        print("Google AIスタジオのTTSクライアントをAPIキーで初期化しました。")
-    else:
-        google_aistudio_tts_client = GoogleAIStudioTTS()
-        print("Google AIスタジオのTTSクライアントを初期化しました（APIキーなし）。")
-        print("警告: APIキーが設定されていないため、認証が必要な機能は使用できません。")
-except Exception as e:
-    print(f"Failed to initialize Google AI Studio TTS client: {e}")
-    traceback.print_exc()
-    google_aistudio_tts_client = None
+    GEMINI_API_KEY = config_data.get("gemini_api_key")
+    if not GEMINI_API_KEY:
+        raise ValueError(f"エラー: Gemini APIキーが {CONFIG_FILE_PATH} に設定されていません。")
+    print(f"Gemini APIキーを {CONFIG_FILE_PATH} から正常に読み込みました。")
+except FileNotFoundError:
+    print(f"エラー: 設定ファイル {CONFIG_FILE_PATH} が見つかりません。プログラムを終了します。")
+    exit()
+except ValueError as e:
+    print(e)
+    print("プログラムを終了します。")
+    exit()
+except json.JSONDecodeError:
+    print(f"エラー: {CONFIG_FILE_PATH} のJSON形式が正しくありません。プログラムを終了します。")
+    exit()
+
+# --- 標準ライブラリ・外部ライブラリのインポート --- #
+
+from google_aistudio_tts import GoogleAIStudioTTS  # Gemini API TTS (Google AI Studio TTS) クライアント
+# 翻訳ライブラリとして deep-translator を使用
+try:
+    from deep_translator import GoogleTranslator
+    # 翻訳クライアントの初期化は translate_text 関数内で行う
+    print("deep-translator library loaded successfully.")
+except ImportError:
+    print("deep-translatorライブラリがインストールされていません。翻訳機能は使用できません。")
+    print("pip install deep-translator を実行してインストールしてください。")
+
+import numpy as np  # 音声データ処理用 (現在は未使用の可能性あり)
+import traceback  # エラー発生時のスタックトレース表示用
+import sounddevice as sd  # 音声再生用
+import argparse  # コマンドライン引数の解析用
+# import pytchat  # YouTubeライブチャット読み上げ用 (現在はコメントアウト)
+import time  # 時間関連処理用
+from time import sleep  # 一定時間待機用
+import os  # OS依存機能（ファイルパス操作など）用
+import random  # 乱数生成用（応答の多様性などに利用可能性あり）
+from datetime import datetime  # 日時情報取得用（ログ記録など）
+import re  # 正規表現操作用（ユーザー入力の解析など）
+
+
+# --- ローカルTTSモデル関連 (現在はコメントアウト) --- #
+# from style_bert_vits2.constants import Languages # Style-Bert-VITS2用 (現在はコメントアウト)
+# from style_bert_vits2.models import bert_models # Style-Bert-VITS2用 (現在はコメントアウト)
+# bert_models.load_model(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm") # Style-Bert-VITS2用 (現在はコメントアウト)
+# bert_models.load_tokenizer(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm") # Style-Bert-VITS2用 (現在はコメントアウト)
+
+# Style-Bert-VITS2モデルファイルパス (現在はコメントアウト。必要に応じてパスを修正してください)
+# model_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\koharune-ami.safetensors"
+# config_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\config.json"
+# style_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\style_vectors.npy"
+
+assets_root = Path("model_assets")  # Style-Bert-VITS2のアセットルート (現在は直接利用していない可能性あり)
+
+# YouTubeライブチャットID (現在はコメントアウト)
+# LIVE_VIDEO_ID = "9JXQ1XvHz-k"
+# livechat = pytchat.create(video_id=LIVE_VIDEO_ID)
+
+
+
+
+
+LOG_FILE_PATH = os.path.join(LOG_DIR, "conversation_log.txt")  # 会話ログファイルのフルパス
+
+# --- ログディレクトリの準備 --- #
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR) # ログディレクトリが存在しない場合は作成
+
+# --- グローバル変数 (言語設定など) --- #
+TARGET_LANGUAGE = "ja"  # AITuberが使用する言語コード (デフォルト: 日本語、起動時引数で変更可能)
+TARGET_LANGUAGE_BCP47 = "ja-JP"  # AITuberが使用する言語のBCP47コード (デフォルト: 日本語)
+
+# 対応言語の定義
+SUPPORTED_LANGUAGES_MAP = {  # アプリケーション内部で使用する言語コードとBCP47コードのマッピング
+    "ja": "ja-JP",
+    "en": "en-US",
+    "es": "es-ES"
+}
+LANGUAGE_NAMES = {  # 各言語コードに対応する表示名
+    "ja": "Japanese",
+    "en": "English",
+    "es": "Spanish"
+}
+
+# ユーザー入力による言語切り替えコマンドの正規表現パターン (例: !en Hello)
+LANGUAGE_COMMAND_PATTERN = r"^!(ja|en|es)\s+(.+)$"
+
+# --- 特殊応答パターンの読み込み --- #
+def load_response_patterns():
+    """response_patterns.json から特殊応答パターンを読み込みます。
+
+    Returns:
+        dict: 読み込まれた応答パターン。ファイルが存在しないか不正な場合は空の辞書。
+    """
+    try:
+        with open(RESPONSE_PATTERNS_FILE_PATH, "r", encoding="utf-8") as f:
+            patterns = json.load(f)
+            print(f"{RESPONSE_PATTERNS_FILE_PATH} を正常に読み込みました。")
+            return patterns
+    except FileNotFoundError:
+        print(f"警告: 特殊応答パターンファイル '{RESPONSE_PATTERNS_FILE_PATH}' が見つかりません。特殊応答は無効になります。")
+        return {}
+    except json.JSONDecodeError:
+        print(f"警告: 特殊応答パターンファイル '{RESPONSE_PATTERNS_FILE_PATH}' のJSON形式が正しくありません。特殊応答は無効になります。")
+        return {}
+
+# --- 設定ファイルからテンプレート文字列を取得 --- #
+def get_template(template_key, language_code="ja-JP"):
+    """config.local.json から指定されたキーと言語に対応するテンプレート文字列を取得します。
+
+    指定された言語のテンプレートが存在しない場合は、デフォルト言語（日本語）のテンプレートを返します。
+
+    Args:
+        template_key (str): 取得したいテンプレートのキー。
+        language_code (str, optional): 取得したいテンプレートの言語コード (BCP47形式、例: "ja-JP")。
+                                      デフォルトは "ja-JP"。
+
+    Returns:
+        str or None: テンプレート文字列。見つからない場合はNone。
+    """
+    # print(f"DEBUG: get_template called with template_key: {template_key}, language_code: {language_code}") # デバッグ用
+    try:
+        with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
+            config = json.load(f)
+
+        # config.local.json の languages セクションのキーは 'ja', 'en' のような短縮形
+        # language_code (BCP47) から短縮形コードを取得
+        short_lang_code = None
+        for k, v in SUPPORTED_LANGUAGES_MAP.items():
+            if v == language_code:
+                short_lang_code = k
+                break
+
+        # デフォルト言語（日本語）の短縮コードを取得
+        default_short_lang_code = [k for k, v in SUPPORTED_LANGUAGES_MAP.items() if v == "ja-JP"][0]
+
+        # 1. 指定された言語のテンプレートを試みる
+        if short_lang_code:
+            lang_specific_templates = config.get("languages", {}).get(short_lang_code, {}).get("templates", {})
+            template = lang_specific_templates.get(template_key)
+            if template is not None: # 空文字列も有効なテンプレートとして扱うため is not None でチェック
+                # print(f"DEBUG: Template found for '{template_key}' in '{short_lang_code}': {template}")
+                return template
+            # print(f"DEBUG: Template NOT found for '{template_key}' in '{short_lang_code}', falling back to default language.")
+
+        # 2. デフォルト言語（日本語）のテンプレートを試みる (フォールバック)
+        default_lang_templates = config.get("languages", {}).get(default_short_lang_code, {}).get("templates", {})
+        default_template = default_lang_templates.get(template_key)
+        if default_template is not None:
+            # print(f"DEBUG: Returning default template for '{template_key}': {default_template}")
+            return default_template
+
+        # print(f"DEBUG: Template for '{template_key}' not found in specified or default language.")
+        return None  # どちらの言語にもテンプレートが見つからない場合
+
+    except FileNotFoundError:
+        print(f"エラー: 設定ファイル '{CONFIG_FILE_PATH}' が見つかりません。テンプレートを取得できませんでした。")
+        return None
+    except json.JSONDecodeError:
+        print(f"エラー: 設定ファイル '{CONFIG_FILE_PATH}' のJSON形式が正しくありません。テンプレートを取得できませんでした。")
+        return None
+
+# --- 自己紹介リクエストの判定 --- #
+def is_self_introduction_request(text):
+    """ユーザーの入力テキストが自己紹介のリクエストかどうかを判定します。
+
+    判定には、現在のAITuberの言語設定 (`TARGET_LANGUAGE_BCP47`) に基づいて
+    `config.local.json` から取得した自己紹介トリガーフレーズを使用します。
+    トリガーフレーズは `get_template` 関数経由で取得されます。
+
+    Args:
+        text (str): ユーザーの入力テキスト。
+
+    Returns:
+        bool: 自己紹介のリクエストであればTrue、そうでなければFalse。
+    """
+    # print(f"DEBUG: is_self_introduction_request called with text: {text}") # デバッグ用
+    trigger_phrases_key = "self_introduction_triggers"
+    # get_template はリストを返すことを想定 (config.local.json の templates セクションで定義)
+    trigger_phrases = get_template(trigger_phrases_key, TARGET_LANGUAGE_BCP47)
+
+    # print(f"DEBUG: Self-introduction trigger phrases for {TARGET_LANGUAGE_BCP47}: {trigger_phrases}") # デバッグ用
+
+    if isinstance(trigger_phrases, list): # trigger_phrases がリストであることを確認
+        for phrase in trigger_phrases:
+            if isinstance(phrase, str) and phrase.lower() in text.lower(): # phraseが文字列であることも確認し、部分一致で判定
+                # print(f"DEBUG: Self-introduction request detected with phrase: {phrase}") # デバッグ用
+                return True
+    # print(f"DEBUG: No self-introduction request detected or trigger phrases are not a list/valid.") # デバッグ用
+    return False
+
+# --- 特殊応答の確認 --- #
+def check_special_response(text, patterns_data):
+    """ユーザーの入力テキストが、`patterns_data` に定義された特殊応答パターンに一致するかどうかを確認します。
+
+    一致した場合、対応する応答文字列を返します。
+    `patterns_data` は `load_response_patterns()` 関数によって `response_patterns.json` から読み込まれた
+    辞書型のデータであることを想定しています。
+
+    Args:
+        text (str): ユーザーの入力テキスト。
+        patterns_data (dict): 特殊応答パターンが格納された辞書。
+                              期待される構造:
+                              {
+                                  "patterns": [
+                                      {
+                                          "keywords": ["keyword1", "keyword2"],
+                                          "response": "This is the response."
+                                      },
+                                      ...
+                                  ]
+                              }
+
+    Returns:
+        str or None: 一致する応答が見つかればその応答文字列。見つからない場合や、
+                     `patterns_data` が不正な場合はNone。
+    """
+    # print(f"DEBUG: check_special_response called with text: '{text}'") # デバッグ用
+    if not patterns_data or not isinstance(patterns_data.get("patterns"), list):
+        # print("DEBUG: patterns_data is empty, None, or 'patterns' key is not a list. Skipping special response check.")
+        return None
+
+    for pattern_group in patterns_data["patterns"]:
+        if not isinstance(pattern_group, dict):
+            # print(f"DEBUG: Skipping invalid pattern_group (not a dict): {pattern_group}")
+            continue  # パターングループが辞書でない場合はスキップ
+
+        keywords = pattern_group.get("keywords", [])
+        response_text = pattern_group.get("response", "") # 変数名を response から response_text に変更
+
+        # print(f"DEBUG: Checking keywords: {keywords} for response: {response_text}")
+
+        if not isinstance(keywords, list) or not keywords: # キーワードがリストでない、または空の場合はスキップ
+            # print(f"DEBUG: Skipping pattern_group due to invalid or empty keywords: {keywords}")
+            continue
+
+        # キーワードのいずれかがテキストに含まれているか確認（大文字・小文字を区別しない、部分一致）
+        if any(isinstance(keyword, str) and keyword.lower() in text.lower() for keyword in keywords):
+            # print(f"DEBUG: Special response triggered by keywords: {keywords}")
+            if isinstance(response_text, str):
+                return response_text
+            else:
+                # print(f"DEBUG: Invalid response_text type (not a string) for triggered keywords: {keywords}, response_text: {response_text}")
+                return None # 応答が文字列でない場合はNoneを返す
+
+    # print("DEBUG: No special response triggered.")
+    return None
+
+# --- グローバル設定の読み込み --- #
+# スクリプトのトップレベルで一度だけ実行され、主にデフォルト言語での初期設定を行う。
+# main()関数内では、コマンドライン引数に基づいて再度設定が読み込まれ、これらの値は上書きされる可能性がある。
+character_name = "AITuber"  # デフォルトのキャラクター名
+persona = "あなたは親切なAIアシスタントです。"  # デフォルトのペルソナ
+greeting = "こんにちは！"  # デフォルトの挨拶
+guidelines = []  # デフォルトのガイドライン (空のリスト)
+full_persona = persona # ペルソナとガイドラインを結合したもの
+
+try:
+    with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
+        config_data_global = json.load(f) # グローバルスコープ用の変数名
+
+    # グローバルスコープでは、デフォルト言語(日本語 'ja') の設定を試みる
+    default_lang_settings = config_data_global.get("languages", {}).get("ja", {})
+    character_name = default_lang_settings.get("character_name", character_name)
+    persona = default_lang_settings.get("persona", persona)
+    greeting = default_lang_settings.get("greeting", greeting)
+    guidelines = default_lang_settings.get("guidelines", guidelines)
+
+    full_persona = persona
+    if guidelines: # ガイドラインが存在する場合のみ結合
+        full_persona += "\n\nガイドライン:\n- " + "\n- ".join(guidelines)
+    print(f"情報: {CONFIG_FILE_PATH} からグローバル設定（日本語優先）を読み込みました。")
+
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    print(f"警告: 設定ファイル '{CONFIG_FILE_PATH}' が見つかりません、またはJSON形式が正しくありません。グローバル設定にはデフォルト値を使用します。 Error: {e}")
+    # character_name, persona, greeting, guidelines は既にデフォルト値が設定されているため、ここでは何もしない
+    # (既に定義済みのデフォルト値が使用される)
+
+# --- Google Cloud Platform (GCP) 関連 --- #
+
+# GCP認証情報の確認関数 (現在はGoogle Cloud TTS用だが、Gemini API利用が主軸のため、将来的に削除または見直しの可能性あり)
+def check_gcp_credentials():
+    """環境変数 GOOGLE_APPLICATION_CREDENTIALS が設定されているかを確認します。
+
+    Returns:
+        bool: 設定されていればTrue、されていなければFalse。
+    """
+    gac_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if not gac_path:
+        print("情報: 環境変数 GOOGLE_APPLICATION_CREDENTIALS が設定されていません。Google Cloud TTS (代替TTS) は利用できません。")
+        return False
+    if not os.path.exists(gac_path):
+        print(f"警告: 環境変数 GOOGLE_APPLICATION_CREDENTIALS に指定されたファイルが存在しません: {gac_path}。Google Cloud TTS (代替TTS) は利用できません。")
+        return False
+    print(f"情報: 環境変数 GOOGLE_APPLICATION_CREDENTIALS が設定されており、ファイルも存在します: {gac_path}")
+    return True
+
+
+# --- Google AI Studio TTS (Gemini API TTS) クライアントの初期化 (メインTTSとして利用) ---
+google_aistudio_tts_client = None
+if GEMINI_API_KEY: # APIキーが設定されている場合のみ初期化を試みる
+    try:
+        google_aistudio_tts_client = GoogleAIStudioTTS(api_key=GEMINI_API_KEY)
+        print("Google AI Studio TTSクライアント (Gemini API TTS) を正常に初期化しました。(メインTTSとして利用)")
+    except Exception as e:
+        print(f"警告: Google AI Studio TTSクライアントの初期化に失敗しました。音声合成は利用できません。")
+        print(f"エラー詳細: {e}")
+        # traceback.print_exc() # 詳細なエラーが必要な場合にコメント解除
+else:
+    print("警告: Gemini APIキーが設定されていないため、Google AI Studio TTSクライアントは初期化されません。音声合成は利用できません。")
+#         # traceback.print_exc() # 詳細なエラーが必要な場合にコメント解除
+# else:
+#     print("警告: Gemini APIキーが設定されていないため、Google AI Studio TTSクライアントは初期化されません。音声合成は利用できません。")
+
 
 # googletransの初期化は上部で完了しているので、ここは空
 
 GCP_SAMPLE_RATE = 24000  # Wavenet音声の一般的なサンプルレート。標準音声の場合は16000Hzが多いです。
+
 
 def get_gcp_voice_name(language_code="ja-JP"):
     """指定された言語コードに適した音声名を返します。"""
@@ -263,23 +367,15 @@ def translate_text(text, target_language):
     テキストを指定された言語に翻訳します。
     target_language: 'ja-JP', 'en-US', 'es-ES' など
     """
-    if not translator:
-        print("翻訳ライブラリが初期化されていないため、翻訳できません。")
-        return text
-        
     try:
-        # 言語コードから国コードを削除（ja-JP → ja）
-        target = target_language.split('-')[0]
-        
-        # googletransで翻訳を実行
-        result = translator.translate(text, dest=target)
-        translated_text = result.text
-        
-        print(f"翻訳: {target_language}")
-        return translated_text
+        # deep-translatorは 'ja' のような短い言語コードを期待する
+        target_lang_short = target_language.split('-')[0]
+        # GoogleTranslatorインスタンスを都度生成
+        translated = GoogleTranslator(source='auto', target=target_lang_short).translate(text)
+        return translated
     except Exception as e:
-        print(f"翻訳中にエラーが発生しました: {e}")
-        return text
+        print(f"翻訳エラーが発生しました: {e}")
+        return text # エラー時は元のテキストを返す
 
 def log_to_file(speaker, message, language=None):
     """
@@ -358,7 +454,10 @@ def get_tts_settings():
         print(f"TTS設定の取得に失敗しました: {e}")
         return {}  # デフォルトは空の辞書
 
-def play_audio_google_aistudio(text_to_speak, language_code="ja-JP", max_retries=3):
+def play_audio_google_aistudio(text_to_speak, language_code=None, max_retries=3):
+    # 引数で言語が指定されなかった場合、グローバルのターゲット言語を使用
+    if language_code is None:
+        language_code = TARGET_LANGUAGE_BCP47
     """
     Google AIスタジオのText-to-Speech を使用して音声を合成し、再生します。
     エラーが発生した場合はリトライします。
@@ -688,93 +787,61 @@ safety_settings = [
         "threshold": "BLOCK_NONE"
     }
   ]
-model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash-exp", # モデル名を元に戻す
-    generation_config=generation_config,
-    safety_settings=safety_settings
-  )
 
-# chat_session の初期化を修正
-chat_session = model.start_chat(
-    history=[
-        {
-            "role": "user",
-            "parts": [full_persona], # ペルソナとガイドラインを組み合わせたものを使用
-        },
-        {
-            "role": "model",
-            "parts": [greeting], # config.json の greeting を最初の応答として設定
-        }
-    ]
-)
 
 def interactive_mode():
-    # 挨拶メッセージの取得と再生
-    greeting_message = get_template("greeting")
-    if greeting_message:
-        print(f"{character_name}: {greeting_message}")
-        log_to_file(character_name, greeting_message, DEFAULT_LANGUAGE)
-        tts_provider = get_tts_provider()
-        if tts_provider == "google_aistudio":
-            play_audio_google_aistudio(greeting_message, language_code=DEFAULT_LANGUAGE)
-        else:
-            play_audio_gcp(greeting_message, language_code=DEFAULT_LANGUAGE)
-    else:
-        print(f"{character_name}: こんにちは！何かお手伝いできることはありますか？") # デフォルトの挨拶
-        log_to_file(character_name, "こんにちは！何かお手伝いできることはありますか？", DEFAULT_LANGUAGE)
-        tts_provider = get_tts_provider()
-        if tts_provider == "google_aistudio":
-            play_audio_google_aistudio("こんにちは！何かお手伝いできることはありますか？", language_code=DEFAULT_LANGUAGE)
-        else:
-            play_audio_gcp("こんにちは！何かお手伝いできることはありますか？", language_code=DEFAULT_LANGUAGE)
+    """インタラクティブモードのメインループ"""
+    global TARGET_LANGUAGE, TARGET_LANGUAGE_BCP47, full_persona, character_name, persona, greeting, guidelines
 
-    # モデルの準備
-    generation_config = {
-        "temperature": 0.7, # 応答のランダム性を調整 (0.0-1.0)
-        "top_p": 0.95,      # Top-pサンプリング (0.0-1.0)
-        "top_k": 40,        # Top-kサンプリング (整数)
-        "max_output_tokens": 1024, # 最大出力トークン数
-    }
+    chat_session = None
+    try:
+        # 正しいインポート方法に修正
+        from google import genai
+        genai.configure(api_key=GEMINI_API_KEY)
 
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash-latest",
-        generation_config=generation_config,
-        safety_settings=[
-            {
-                "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_NONE",
+        # モデルとチャットセッションの初期化を1つにまとめる
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash-latest",
+            system_instruction=full_persona, # ★キャラクター設定をシステム命令として渡す
+            generation_config={
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 1024,
             },
-            {
-                "category": "HARM_CATEGORY_HATE_SPEECH",
-                "threshold": "BLOCK_NONE",
-            },
-            {
-                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                "threshold": "BLOCK_NONE",
-            },
-            {
-                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                "threshold": "BLOCK_NONE",
-            },
-        ]
-        # system_instructionパラメータは削除（古いバージョンではサポートされていないため）
-    )
+            safety_settings=[
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+        )
 
-    # ペルソナを最初のユーザーメッセージとして設定
-    chat_session = model.start_chat(
-        history=[
-            {
-                "role": "user",
-                "parts": [full_persona],
-            },
-            {
-                "role": "model",
-                "parts": [greeting],
-            }
-        ]
-    )
+        chat_session = model.start_chat(
+            history=[
+                # 履歴の初期設定はシンプルに。システム命令でペルソナは設定済み。
+                # 必要であれば、最初の挨拶を履歴に追加することも可能。
+                # {
+                #     "role": "user",
+                #     "parts": ["こんにちは"], # 最初のユーザー発話のダミー
+                # },
+                # {
+                #     "role": "model",
+                #     "parts": [greeting],
+                # }
+            ]
+        )
+        print("対話用Geminiモデルをペルソナで正常に初期化しました。")
 
-    current_language = DEFAULT_LANGUAGE  # 現在の言語を保持する変数
+    except Exception as e:
+        print(f"エラー: 対話用Geminiモデルの初期化に失敗しました。 {e}")
+        print("警告: AIとの対話機能は無効になります。")
+        # この後のループで chat_session が None であることをチェックする
+
+    # 挨拶は main() で既に実行されているため、ここでは不要
+    # print(f"{character_name}: {greeting}") # 重複するのでコメントアウト
+
+    current_language = TARGET_LANGUAGE_BCP47  # 現在の言語を保持する変数
 
     # メインループ
     while True:
@@ -795,8 +862,8 @@ def interactive_mode():
                 message_text = language_match.group(2)  # コマンド後のメッセージ
                 
                 # 言語コードを完全な形式に変換
-                if lang_code in SUPPORTED_LANGUAGES:
-                    current_language = SUPPORTED_LANGUAGES[lang_code]
+                if lang_code in SUPPORTED_LANGUAGES_MAP:
+                    current_language = SUPPORTED_LANGUAGES_MAP[lang_code]
                     print(f"言語を {current_language} に切り替えました")
                     
                     # 言語切り替えメッセージをログに記録
@@ -837,24 +904,33 @@ def interactive_mode():
                         print(f"自己紹介テンプレートを使用しました: {current_language}")
                     else:
                         # テンプレートがない場合は通常の応答処理
-                        response = chat_session.send_message(user_input)
-                        response_text = response.text
+                        if not chat_session:
+                            response_text = "申し訳ありません、AIモデルが初期化されていないため、お答えできません。"
+                        else:
+                            response = chat_session.send_message(user_input)
+                            response_text = response.text
             else:
                 # 通常の応答処理
-                ai_input = user_input
-                if current_language == "en-US":
-                    ai_input = f"Respond in English.\nUser: {user_input}"
-                elif current_language == "es-ES":
-                    ai_input = f"Respond in Spanish.\nUser: {user_input}"
-                # 他の言語のサポートを追加する場合は、ここにelif節を追加します。
+                if not chat_session:
+                    response_text = "申し訳ありません、AIモデルが初期化されていないため、お答えできません。"
+                else:
+                    ai_input = user_input
+                    if current_language == "en-US":
+                        ai_input = f"Respond in English.\nUser: {user_input}"
+                    elif current_language == "es-ES":
+                        ai_input = f"Respond in Spanish.\nUser: {user_input}"
+                    # 他の言語のサポートを追加する場合は、ここにelif節を追加します。
 
                 response = chat_session.send_message(ai_input)
                 response_text = response.text
             
             # デフォルト言語（日本語）以外の場合は翻訳
-            if current_language != DEFAULT_LANGUAGE:
+            if current_language != TARGET_LANGUAGE_BCP47:
+                print(f"[DEBUG] 翻訳開始: 元の言語={TARGET_LANGUAGE_BCP47}, ターゲット言語={current_language}")
+                print(f"[DEBUG] 翻訳前のテキスト: {response_text[:100]}...") # 長い場合は一部のみ表示
                 original_text = response_text
                 response_text = translate_text(original_text, current_language)
+                print(f"[DEBUG] 翻訳後のテキスト: {response_text[:100]}...") # 長い場合は一部のみ表示
                 
                 # 翻訳前と翻訳後の両方をログに記録
                 log_to_file(character_name, original_text, "原文")
@@ -879,71 +955,3 @@ def interactive_mode():
             print(error_message)
             log_to_file("Error", error_message)
             traceback.print_exc()
-
-def manuscript_mode():
-    print("原稿読み上げモードを開始します。")
-    log_to_file("System", "原稿読み上げモードを開始しました")
-    manuscript_file_path = Path("scripts") / "manuscript.txt"
-
-    try:
-        with open(manuscript_file_path, "r", encoding="utf-8") as f:
-            manuscript_content = f.read()
-        
-        if not manuscript_content.strip():
-            print(f"{manuscript_file_path} が空です。")
-            log_to_file("System", f"{manuscript_file_path} が空です。")
-            return
-
-        paragraphs = [p.strip() for p in manuscript_content.split('\n\n') if p.strip()]
-
-        if not paragraphs:
-            print("原稿に読み上げ可能な段落がありません。")
-            log_to_file("System", "原稿に読み上げ可能な段落がありません。")
-            return
-
-        print(f"\n--- {manuscript_file_path} の内容 ---")
-        for i, para in enumerate(paragraphs):
-            print(f"\n[段落 {i+1}]\n{para}")
-            log_to_file("Manuscript", f"[段落 {i+1}] {para}") # 原稿内容もログに記録
-            tts_provider = get_tts_provider()
-            if tts_provider == "google_aistudio":
-                play_audio_google_aistudio(para, language_code=DEFAULT_LANGUAGE)
-            else:
-                play_audio_gcp(para, language_code=DEFAULT_LANGUAGE)
-        print("\n--- 原稿の読み上げが完了しました --- ")
-        log_to_file("System", "原稿の読み上げが完了しました")
-
-    except FileNotFoundError:
-        print(f"エラー: 原稿ファイルが見つかりません。次のパスに `manuscript.txt` を配置してください: {manuscript_file_path.parent.resolve()}")
-        log_to_file("Error", f"原稿ファイルが見つかりません: {manuscript_file_path}")
-    except Exception as e:
-        error_message = f"原稿読み上げモードでエラーが発生しました: {e}"
-        print(error_message)
-        log_to_file("Error", error_message)
-        traceback.print_exc()
-
-if __name__ == "__main__":
-    # ログディレクトリが存在しない場合は作成
-    if not os.path.exists(LOG_DIR):
-        os.makedirs(LOG_DIR)
-
-    while True:
-        print("\nモードを選択してください:")
-        print("1: インタラクティブモード (AIと会話)")
-        print("2: 原稿読み上げモード (scripts/manuscript.txt を読み上げ)")
-        print("exit: 終了")
-        mode_choice = input("選択: ")
-
-        if mode_choice == '1':
-            log_to_file("System", "インタラクティブモードが選択されました")
-            interactive_mode()
-            # ループを継続してモード選択に戻る
-        elif mode_choice == '2':
-            log_to_file("System", "原稿読み上げモードが選択されました")
-            manuscript_mode()
-            # ループを継続してモード選択に戻る
-        elif mode_choice.lower() == 'exit':
-            print("終了します。")
-            break
-        else:
-            print("無効な選択です。1, 2, または exit を入力してください。")

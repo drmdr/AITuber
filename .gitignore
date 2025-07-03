@@ -29,5 +29,9 @@ output/
 .DS_Store
 Thumbs.db
 config.json
-config.local.json
+# config.local.json
 credentials/
+
+# 大容量ライブラリ/モデル
+style-bert-vits2/
+sbv2/

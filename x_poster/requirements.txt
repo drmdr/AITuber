@@ -2,5 +2,6 @@ tweepy
 gspread
 google-auth
 google-generativeai
+requests
 pytz
 python-dotenv
