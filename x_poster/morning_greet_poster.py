@@ -300,10 +300,10 @@ def run_post_job():
         logging.info("Waiting 10 minutes before English reply...")
         time.sleep(600)
 
-        # English Tweet (no image)
+        # English Tweet (with image, as a reply)
         intro_en = f"Today's featured {category} is \"{service_name}\""
         tweet_en = f"Gmonamin! {intro_en}!\n\n{ai_comment_en}\n\n#Monad #AITuber #Monamin_EN"
-        post_to_twitter(config, tweet_en)
+        post_to_twitter(config, tweet_en, image_path=image_path, in_reply_to_tweet_id=japanese_tweet_id)
 
     finally:
         if image_path and os.path.exists(image_path):
