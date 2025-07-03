@@ -53,7 +53,8 @@
     "morning_greeting": {
       "enabled": true,
       "post_time": "08:00",
-      "timezone": "Asia/Tokyo"
+      "timezone": "Asia/Tokyo",
+      "image_generation_enabled": true
     }
   },
   "templates": {
