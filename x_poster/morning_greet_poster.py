@@ -5,8 +5,9 @@ import tweepy
 import gspread
 from google.oauth2.service_account import Credentials
 import google.generativeai as genai
-import vertexai
-from vertexai.vision_models import ImageGenerationModel, Image
+from PIL import Image
+from io import BytesIO
+from google.generativeai import types
 import logging
 import os
 from datetime import datetime, timedelta
@@ -159,64 +160,62 @@ def generate_ai_comment(config, service_name, service_description, max_length_fo
         return {"category": "サービス", "ja": "今日はこのサービスに注目やで！", "en": "Let's check out this service today!"}
 
 def generate_and_save_image(config, text_prompt, character_name, persona, service_name):
-    """Generates an image using Vertex AI Imagen based on a detailed text prompt and saves it to a temporary file."""
+    """Generates an image using the Gemini API based on a detailed text prompt and saves it to a temporary file."""
     try:
-        logging.info("Initializing Vertex AI...")
-        project_id = config['x_poster']['google_sheets']['google_cloud_project_id']
-        vertexai.init(project=project_id, location="us-central1")
-        logging.info("Vertex AI initialized successfully.")
+        logging.info("Initializing Gemini API for image generation...")
+        # Gemini API uses the key set in the environment, so direct initialization is simple
+        client = genai.Client()
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
 
-        # --- Prompt Generation based on Best Practices ---
+        # --- Prompt Generation for Gemini API ---
+        style_and_quality = "A high-quality, vibrant, and clean anime style character illustration. masterpiece, best quality, ultra-detailed, 4K, HDR, beautiful detailed eyes, perfect face."
+        subject_and_pose = f"Create an image of a cheerful and cute Japanese anime girl named {character_name}. {character_description}. She should be the main focus, smiling happily and engaging with the viewer."
+        scene_context = f"The background should be related to the featured app: '{service_name}'."
 
-        # 1. Define Style & Quality Modifiers
-        style_and_quality = "anime style character illustration, masterpiece, best quality, ultra-detailed, 4K, HDR, vibrant colors, clean line art, beautiful detailed eyes, perfect face"
-
-        # 2. Define the Subject and Pose
-        subject_and_pose = f"1girl, solo, full body shot of a cheerful and cute Japanese anime girl, {character_name}, {character_description}, smiling happily, engaging with the viewer"
-
-        # 3. Randomly apply Chibi style
+        # Randomly apply Chibi style
         if random.random() < 0.3: # 30% chance
             style_and_quality = "chibi style, super deformed, cute, " + style_and_quality
 
-        # 4. Define Negative Prompts to avoid common issues
-        negative_prompt = (
-            "low quality, worst quality, jpeg artifacts, blurry, noisy, text, watermark, signature, "
-            "ugly, deformed, disfigured, malformed, bad anatomy, extra limbs, missing limbs, "
-            "extra fingers, mutated hands, poorly drawn hands, poorly drawn face, dirty face, messy, distorted"
+        # Gemini's image generation is part of a multimodal prompt, so we structure it as a conversation.
+        # We don't have a direct negative prompt parameter like Imagen, so we include it in the main prompt.
+        full_prompt = (
+            f"{style_and_quality} {subject_and_pose} {scene_context} "
+            f"Please avoid the following: low quality, worst quality, jpeg artifacts, blurry, noisy, text, watermark, signature, "
+            f"ugly, deformed, disfigured, malformed, bad anatomy, extra limbs, missing limbs, "
+            f"extra fingers, mutated hands, poorly drawn hands, poorly drawn face, dirty face, messy, distorted."
         )
 
-        # 5. Combine all parts into the final prompt
-        # Context from the service is added here to give the scene some relevance
-        full_prompt = f"{style_and_quality}, {subject_and_pose}, in a scene related to '{service_name}'"
+        logging.info(f"Generating image with Gemini prompt: {full_prompt}")
 
-        logging.info(f"Generating image with prompt: {full_prompt}")
-        logging.info(f"Negative prompt: {negative_prompt}")
-
-        model = ImageGenerationModel.from_pretrained("imagegeneration@006")
-        
-        response = model.generate_images(
-            prompt=full_prompt,
-            negative_prompt=negative_prompt,
-            number_of_images=1,
+        response = client.models.generate_content(
+            model="gemini-1.5-flash", # Using a capable Gemini model
+            contents=full_prompt,
+            generation_config=genai.types.GenerationConfig(
+                response_mime_type='image/png' # Request image output
+            )
         )
 
-        logging.info(f"Vertex AI response: {response}")
-
-        if not response.images:
-            logging.error("Image generation failed. The response contained no images. This might be due to safety filters.")
-            if hasattr(response, '_prediction_response') and response._prediction_response:
-                 logging.error(f"Prediction response details: {response._prediction_response}")
+        if not response.candidates or not response.candidates[0].content.parts:
+            logging.error("Image generation failed. The response contained no image data.")
             return None
 
+        # Extract image data
+        image_part = response.candidates[0].content.parts[0]
+        if image_part.mime_type != 'image/png':
+            logging.error(f"Unexpected response format. Expected 'image/png', got '{image_part.mime_type}'.")
+            return None
+
+        image_data = image_part.blob.data
+        image = Image.open(BytesIO(image_data))
+        
         image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
-        response.images[0].save(location=image_path, include_generation_parameters=False)
+        image.save(image_path)
         logging.info(f"Image saved to {image_path}")
         return image_path
 
     except Exception as e:
-        logging.error(f"An error occurred during image generation: {e}")
+        logging.error(f"An error occurred during image generation with Gemini: {e}")
         return None
 
 # --- Twitter Posting ---
