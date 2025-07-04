@@ -6,7 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import google.generativeai as genai
 import vertexai
-from vertexai.preview.vision_models import ImageGenerationModel, Image
+from vertexai.vision_models import ImageGenerationModel, Image
 import logging
 import os
 from datetime import datetime, timedelta
@@ -14,8 +14,6 @@ import pytz
 from dotenv import load_dotenv
 from pathlib import Path
 import requests
-import vertexai
-from vertexai.vision_models import ImageGenerationModel, Image
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -169,20 +167,38 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
         logging.info("Vertex AI initialized successfully.")
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
-        
-        prompt = (
-            f"A high-quality, anime-style digital illustration of '{character_name}'. "
-            f"Character details: {character_description}. "
-            f"Her persona is: {persona}. "
-            f"The character should be the main focus, looking happy and engaging with the viewer. "
-            f"Additional context for the scene: 今日の注目Appは「{service_name}」やで！ {text_prompt}"
+
+        # --- Dynamic Prompt Generation ---
+        # Base quality and style prompts
+        base_prompt = "masterpiece, best quality, high quality, absurdres, anime style, vibrant, cheerful, clean line art, bright and vivid colors, "
+
+        # Randomly add chibi style
+        if random.random() < 0.3: # 30% chance to be a chibi character
+            base_prompt += "chibi, super deformed, cute, "
+            character_name = f"chibi {character_name}"
+
+        # Character and context prompts
+        character_prompt = (
+            f"1girl, solo, illustration of '{character_name}', "
+            f"{character_description}, "
+            f"The character should be the main focus, with a happy and engaging expression. "
+            f"Scene context: Introducing today's featured app: '{service_name}'. {text_prompt}"
         )
-        logging.info(f"Generating image with prompt: {prompt}")
+
+        # Negative prompts to improve quality
+        negative_prompt = "worst quality, low quality, normal quality, lowres, simple background, ugly, deformed, disfigured, bad anatomy, extra limbs, missing limbs, blurry, noisy, dirty face, messy"
+
+        # Combine all parts
+        full_prompt = f"{base_prompt}{character_prompt}"
+
+        logging.info(f"Generating image with prompt: {full_prompt}")
+        logging.info(f"Negative prompt: {negative_prompt}")
 
         model = ImageGenerationModel.from_pretrained("imagegeneration@006")
         
         response = model.generate_images(
-            prompt=prompt,
+            prompt=full_prompt,
+            negative_prompt=negative_prompt,
             number_of_images=1,
         )
 
