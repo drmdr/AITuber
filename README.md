@@ -164,6 +164,12 @@ pip install -r x_poster/requirements.txt
 - `docs/structure.md`: プロジェクトのファイル構造
 - `docs/spec.md`: プロジェクトの仕様
 
+## 開発フロー
+
+本プロジェクトは個人開発であり、効率を重視するため、以下の開発フローを推奨します。
+
+- **Gitコミット**: 機能追加や修正が完了した際、`git add`、`git commit`、`git push`は個別に実行せず、一連の流れとしてまとめて実行してください。
+
 ## 貢献
 
 バグ報告や改善提案は、GitHubのIssuesにお願いします。
