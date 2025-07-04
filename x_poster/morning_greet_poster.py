@@ -168,28 +168,28 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
 
-        # --- Dynamic Prompt Generation ---
-        # Base quality and style prompts
-        base_prompt = "masterpiece, best quality, high quality, absurdres, anime style, vibrant, cheerful, clean line art, bright and vivid colors, "
+        # --- Prompt Generation based on Best Practices ---
 
-        # Randomly add chibi style
-        if random.random() < 0.3: # 30% chance to be a chibi character
-            base_prompt += "chibi, super deformed, cute, "
-            character_name = f"chibi {character_name}"
+        # 1. Define Style & Quality Modifiers
+        style_and_quality = "anime style character illustration, masterpiece, best quality, ultra-detailed, 4K, HDR, vibrant colors, clean line art, beautiful detailed eyes, perfect face"
 
-        # Character and context prompts
-        character_prompt = (
-            f"1girl, solo, illustration of '{character_name}', "
-            f"{character_description}, "
-            f"The character should be the main focus, with a happy and engaging expression. "
-            f"Scene context: Introducing today's featured app: '{service_name}'. {text_prompt}"
+        # 2. Define the Subject and Pose
+        subject_and_pose = f"1girl, solo, full body shot of a cheerful and cute Japanese anime girl, {character_name}, {character_description}, smiling happily, engaging with the viewer"
+
+        # 3. Randomly apply Chibi style
+        if random.random() < 0.3: # 30% chance
+            style_and_quality = "chibi style, super deformed, cute, " + style_and_quality
+
+        # 4. Define Negative Prompts to avoid common issues
+        negative_prompt = (
+            "low quality, worst quality, jpeg artifacts, blurry, noisy, text, watermark, signature, "
+            "ugly, deformed, disfigured, malformed, bad anatomy, extra limbs, missing limbs, "
+            "extra fingers, mutated hands, poorly drawn hands, poorly drawn face, dirty face, messy, distorted"
         )
 
-        # Negative prompts to improve quality
-        negative_prompt = "worst quality, low quality, normal quality, lowres, simple background, ugly, deformed, disfigured, bad anatomy, extra limbs, missing limbs, blurry, noisy, dirty face, messy"
-
-        # Combine all parts
-        full_prompt = f"{base_prompt}{character_prompt}"
+        # 5. Combine all parts into the final prompt
+        # Context from the service is added here to give the scene some relevance
+        full_prompt = f"{style_and_quality}, {subject_and_pose}, in a scene related to '{service_name}'"
 
         logging.info(f"Generating image with prompt: {full_prompt}")
         logging.info(f"Negative prompt: {negative_prompt}")
