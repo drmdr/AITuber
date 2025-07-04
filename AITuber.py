@@ -64,20 +64,6 @@ import random  # 乱数生成用（応答の多様性などに利用可能性あ
 from datetime import datetime  # 日時情報取得用（ログ記録など）
 import re  # 正規表現操作用（ユーザー入力の解析など）
 
-
-# --- ローカルTTSモデル関連 (現在はコメントアウト) --- #
-# from style_bert_vits2.constants import Languages # Style-Bert-VITS2用 (現在はコメントアウト)
-# from style_bert_vits2.models import bert_models # Style-Bert-VITS2用 (現在はコメントアウト)
-# bert_models.load_model(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm") # Style-Bert-VITS2用 (現在はコメントアウト)
-# bert_models.load_tokenizer(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm") # Style-Bert-VITS2用 (現在はコメントアウト)
-
-# Style-Bert-VITS2モデルファイルパス (現在はコメントアウト。必要に応じてパスを修正してください)
-# model_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\koharune-ami.safetensors"
-# config_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\config.json"
-# style_file = r"C:\Users\drmdr\Documents\Surfwind\AITuber\sbv2\Style-Bert-VITS2\model_assets\koharune-ami\style_vectors.npy"
-
-assets_root = Path("model_assets")  # Style-Bert-VITS2のアセットルート (現在は直接利用していない可能性あり)
-
 # YouTubeライブチャットID (現在はコメントアウト)
 # LIVE_VIDEO_ID = "9JXQ1XvHz-k"
 # livechat = pytchat.create(video_id=LIVE_VIDEO_ID)

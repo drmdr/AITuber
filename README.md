@@ -11,7 +11,7 @@
 
 - Python
 - OpenAI API (AITuberの対話生成)
-- Style-Bert-VITS2 / Gemini API TTS (Google AI Studio TTS) (音声合成)
+- Gemini API TTS (Google AI Studio TTS) (音声合成)
 - Tweepy (X API連携)
 - gspread (Google Sheets API連携)
 - Google Generative AI (Gemini API)

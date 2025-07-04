@@ -33,5 +33,3 @@ config.json
 credentials/
 
 # 大容量ライブラリ/モデル
-style-bert-vits2/
-sbv2/
