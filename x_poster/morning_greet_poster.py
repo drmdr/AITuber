@@ -163,8 +163,9 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
     """Generates an image using the Gemini API based on a detailed text prompt and saves it to a temporary file."""
     try:
         logging.info("Initializing Gemini API for image generation...")
-        # Gemini API uses the key set in the environment, so direct initialization is simple
-        client = genai.Client()
+        
+        # Instantiate the generative model for image generation
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
 
@@ -188,11 +189,13 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
 
         logging.info(f"Generating image with Gemini prompt: {full_prompt}")
 
-        response = client.models.generate_content(
-            model="gemini-1.5-flash", # Using a capable Gemini model
+        # The correct API for image generation with gemini-1.5-flash takes the prompt directly.
+        # The response_mime_type is specified in the generation_config.
+        response = model.generate_content(
             contents=full_prompt,
             generation_config=genai.types.GenerationConfig(
-                response_mime_type='image/png' # Request image output
+                candidate_count=1,
+                response_mime_type='image/png'
             )
         )
 
@@ -206,7 +209,8 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
             logging.error(f"Unexpected response format. Expected 'image/png', got '{image_part.mime_type}'.")
             return None
 
-        image_data = image_part.blob.data
+        # The image data is in the `data` attribute of the Part object, not `blob.data`
+        image_data = image_part.data
         image = Image.open(BytesIO(image_data))
         
         image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
