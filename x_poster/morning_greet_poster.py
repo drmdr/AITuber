@@ -164,8 +164,8 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
     try:
         logging.info("Initializing Gemini API for image generation...")
         
-        # Instantiate the generative model for image generation
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+        # クライアントの初期化
+        client = genai.Client()
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
 
@@ -189,28 +189,32 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
 
         logging.info(f"Generating image with Gemini prompt: {full_prompt}")
 
-        # The correct API for image generation with gemini-1.5-flash takes the prompt directly.
-        # The response_mime_type is specified in the generation_config.
-        response = model.generate_content(
+        # ユーザー提供のコード例に基づく画像生成リクエスト
+        response = client.models.generate_content(
+            model="models/gemini-2.0-flash-exp",
             contents=full_prompt,
-            generation_config=genai.types.GenerationConfig(
-                candidate_count=1,
-                response_mime_type='image/png'
-            )
+            config=types.GenerateContentConfig(response_modalities=['Text', 'Image'])
         )
 
         if not response.candidates or not response.candidates[0].content.parts:
             logging.error("Image generation failed. The response contained no image data.")
             return None
 
-        # Extract image data
-        image_part = response.candidates[0].content.parts[0]
-        if image_part.mime_type != 'image/png':
-            logging.error(f"Unexpected response format. Expected 'image/png', got '{image_part.mime_type}'.")
+        # 画像データの抽出（ユーザー提供のコード例に基づく方法）
+        image_part = None
+        for part in response.candidates[0].content.parts:
+            if part.text is not None:
+                logging.info(f"Text response from Gemini: {part.text}")
+            elif part.inline_data is not None:
+                image_part = part
+                break
+        
+        if not image_part or not hasattr(image_part, 'inline_data'):
+            logging.error("No image data found in the response.")
             return None
 
-        # The image data is in the `data` attribute of the Part object, not `blob.data`
-        image_data = image_part.data
+        # inline_data.dataから画像データを取得
+        image_data = image_part.inline_data.data
         image = Image.open(BytesIO(image_data))
         
         image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
