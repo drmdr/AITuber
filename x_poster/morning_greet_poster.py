@@ -164,11 +164,17 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
     try:
         logging.info("Initializing Gemini API for image generation...")
         
-        # GenerativeModelを使用（古いバージョンのライブラリでも動作）
-        genai.configure(api_key=config.get('gemini_api_key'))
+        # APIキーの取得と設定
+        api_key = config.get('gemini_api_key')
+        if not api_key:
+            logging.error("Missing Gemini API key in configuration")
+            return None
+            
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-1.5-flash")
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
+        logging.info(f"Using character description: {character_description[:50]}...")
 
         # --- Prompt Generation for Gemini API ---
         style_and_quality = "A high-quality, vibrant, and clean anime style character illustration. masterpiece, best quality, ultra-detailed, 4K, HDR, beautiful detailed eyes, perfect face."
@@ -188,58 +194,149 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
             f"extra fingers, mutated hands, poorly drawn hands, poorly drawn face, dirty face, messy, distorted."
         )
 
-        logging.info(f"Generating image with Gemini prompt: {full_prompt}")
+        logging.info(f"Generating image with Gemini prompt: {full_prompt[:100]}...")
 
-        # 古いバージョンのライブラリでも動作する画像生成リクエスト
+        # 画像生成リクエスト
         try:
-            # まずは画像生成を試みる
+            # 画像生成設定
             generation_config = genai.types.GenerationConfig(
                 candidate_count=1,
                 temperature=0.4,
                 top_p=1,
                 top_k=32,
             )
+            
+            # APIリクエスト実行
             response = model.generate_content(
                 contents=full_prompt,
                 generation_config=generation_config
             )
             
-            # レスポンスから画像データを抽出
+            # デバッグ情報を追加
+            logging.info(f"Response received. Type: {type(response)}")
+            
+            # 画像データ変数の初期化
+            image_data = None
+            
+            # レスポンスから画像データを抽出（複数の方法を試す）
+            # パターン1: candidates -> content -> parts -> inline_data
             if hasattr(response, 'candidates') and response.candidates:
-                parts = response.candidates[0].content.parts
-                for part in parts:
-                    if hasattr(part, 'text') and part.text:
-                        logging.info(f"Text response from Gemini: {part.text}")
-                    # 画像データの抽出方法はバージョンによって異なる可能性があるため、複数のパターンを試す
-                    if hasattr(part, 'inline_data') and part.inline_data:
-                        image_data = part.inline_data.data
-                        break
-                    elif hasattr(part, 'data') and part.data:
-                        image_data = part.data
-                        break
-            else:
-                logging.error("No candidates found in the response.")
+                logging.info(f"Found {len(response.candidates)} candidates")
+                
+                for candidate_idx, candidate in enumerate(response.candidates):
+                    if not image_data and hasattr(candidate, 'content') and candidate.content:
+                        logging.info(f"Processing candidate {candidate_idx}")
+                        
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            parts = candidate.content.parts
+                            logging.info(f"Found {len(parts)} parts")
+                            
+                            for part_idx, part in enumerate(parts):
+                                # テキスト応答のログ出力
+                                if hasattr(part, 'text') and part.text:
+                                    logging.info(f"Text in part {part_idx}: {part.text[:50]}...")
+                                
+                                # パターン1: inline_data -> data
+                                if not image_data and hasattr(part, 'inline_data') and part.inline_data:
+                                    if hasattr(part.inline_data, 'data') and part.inline_data.data:
+                                        image_data = part.inline_data.data
+                                        logging.info(f"Found image data in part {part_idx} (inline_data.data)")
+                                
+                                # パターン2: data 直接参照
+                                elif not image_data and hasattr(part, 'data') and part.data:
+                                    image_data = part.data
+                                    logging.info(f"Found image data in part {part_idx} (data)")
+                                
+                                # パターン3: image -> data
+                                elif not image_data and hasattr(part, 'image') and part.image:
+                                    if hasattr(part.image, 'data') and part.image.data:
+                                        image_data = part.image.data
+                                        logging.info(f"Found image data in part {part_idx} (image.data)")
+            
+            # パターン4: 直接responseからの抽出を試みる
+            if not image_data and hasattr(response, 'text'):
+                logging.info("Attempting to extract image from response.text")
+                # Base64エンコードされた画像を探す処理を追加
+                import re
+                import base64
+                
+                text = response.text
+                # Base64パターンを検索
+                base64_pattern = r'data:image\/[^;]+;base64,([^"\s]+)'
+                match = re.search(base64_pattern, text)
+                
+                if match:
+                    try:
+                        base64_data = match.group(1)
+                        image_data = base64.b64decode(base64_data)
+                        logging.info("Extracted base64 image data from text response")
+                    except Exception as base64_error:
+                        logging.error(f"Failed to decode base64 data: {base64_error}")
+            
+            # 画像データが見つからない場合
+            if not image_data:
+                logging.error("No image data found in any of the expected response formats")
+                if hasattr(response, '__dict__'):
+                    logging.info(f"Response structure: {str(response.__dict__)[:500]}...")
                 return None
                 
         except Exception as api_error:
             logging.error(f"Error with Gemini API call: {api_error}")
-            # 画像生成に失敗した場合は、None を返す
+            import traceback
+            logging.error(f"Stack trace: {traceback.format_exc()}")
             return None
 
+        # 画像データの検証
         if not image_data:
-            logging.error("No image data found in the response.")
+            logging.error("Image data is None after extraction attempts")
             return None
 
-        # 画像データを処理
-        image = Image.open(BytesIO(image_data))
-        
-        image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
-        image.save(image_path)
-        logging.info(f"Image saved to {image_path}")
-        return image_path
+        # 画像データを処理して保存
+        try:
+            # バイナリデータの検証
+            if not isinstance(image_data, bytes):
+                logging.error(f"Image data is not bytes type: {type(image_data)}")
+                return None
+                
+            if len(image_data) < 100:  # 極端に小さいデータは画像でない可能性が高い
+                logging.error(f"Image data too small ({len(image_data)} bytes), likely not valid")
+                return None
+                
+            # 画像として開いてみる
+            from PIL import Image
+            from io import BytesIO
+            
+            image = Image.open(BytesIO(image_data))
+            
+            # 保存先パスの生成
+            image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
+            
+            # 画像の保存
+            image.save(image_path)
+            logging.info(f"Image successfully saved to {image_path}")
+            
+            # パスを返す
+            return image_path
+            
+        except Exception as img_error:
+            logging.error(f"Error processing image data: {img_error}")
+            import traceback
+            logging.error(f"Image processing stack trace: {traceback.format_exc()}")
+            
+            # 画像データの情報をログ出力
+            if image_data:
+                try:
+                    logging.info(f"Image data type: {type(image_data)}, length: {len(image_data)}")
+                    if len(image_data) < 1000:
+                        logging.info(f"Image data content: {str(image_data)[:100]}...")
+                except:
+                    pass
+            return None
 
     except Exception as e:
         logging.error(f"An error occurred during image generation with Gemini: {e}")
+        import traceback
+        logging.error(f"Stack trace: {traceback.format_exc()}")
         return None
 
 # --- Twitter Posting ---
