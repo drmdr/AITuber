@@ -164,8 +164,9 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
     try:
         logging.info("Initializing Gemini API for image generation...")
         
-        # クライアントの初期化
-        client = genai.Client()
+        # GenerativeModelを使用（古いバージョンのライブラリでも動作）
+        genai.configure(api_key=config.get('gemini_api_key'))
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
 
@@ -189,32 +190,47 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
 
         logging.info(f"Generating image with Gemini prompt: {full_prompt}")
 
-        # ユーザー提供のコード例に基づく画像生成リクエスト
-        response = client.models.generate_content(
-            model="models/gemini-2.0-flash-exp",
-            contents=full_prompt,
-            config=types.GenerateContentConfig(response_modalities=['Text', 'Image'])
-        )
-
-        if not response.candidates or not response.candidates[0].content.parts:
-            logging.error("Image generation failed. The response contained no image data.")
+        # 古いバージョンのライブラリでも動作する画像生成リクエスト
+        try:
+            # まずは画像生成を試みる
+            generation_config = genai.types.GenerationConfig(
+                candidate_count=1,
+                temperature=0.4,
+                top_p=1,
+                top_k=32,
+            )
+            response = model.generate_content(
+                contents=full_prompt,
+                generation_config=generation_config
+            )
+            
+            # レスポンスから画像データを抽出
+            if hasattr(response, 'candidates') and response.candidates:
+                parts = response.candidates[0].content.parts
+                for part in parts:
+                    if hasattr(part, 'text') and part.text:
+                        logging.info(f"Text response from Gemini: {part.text}")
+                    # 画像データの抽出方法はバージョンによって異なる可能性があるため、複数のパターンを試す
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        image_data = part.inline_data.data
+                        break
+                    elif hasattr(part, 'data') and part.data:
+                        image_data = part.data
+                        break
+            else:
+                logging.error("No candidates found in the response.")
+                return None
+                
+        except Exception as api_error:
+            logging.error(f"Error with Gemini API call: {api_error}")
+            # 画像生成に失敗した場合は、None を返す
             return None
 
-        # 画像データの抽出（ユーザー提供のコード例に基づく方法）
-        image_part = None
-        for part in response.candidates[0].content.parts:
-            if part.text is not None:
-                logging.info(f"Text response from Gemini: {part.text}")
-            elif part.inline_data is not None:
-                image_part = part
-                break
-        
-        if not image_part or not hasattr(image_part, 'inline_data'):
+        if not image_data:
             logging.error("No image data found in the response.")
             return None
 
-        # inline_data.dataから画像データを取得
-        image_data = image_part.inline_data.data
+        # 画像データを処理
         image = Image.open(BytesIO(image_data))
         
         image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
