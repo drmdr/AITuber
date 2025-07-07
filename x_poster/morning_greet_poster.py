@@ -4,10 +4,10 @@ import time
 import tweepy
 import gspread
 from google.oauth2.service_account import Credentials
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from PIL import Image
 from io import BytesIO
-from google.generativeai import types
 import logging
 import os
 from datetime import datetime, timedelta
@@ -15,6 +15,7 @@ import pytz
 from dotenv import load_dotenv
 from pathlib import Path
 import requests
+import base64
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -170,8 +171,8 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
             logging.error("Missing Gemini API key in configuration")
             return None
             
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        # Gemini APIクライアントの初期化
+        client = genai.Client(api_key=api_key)
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
         logging.info(f"Using character description: {character_description[:50]}...")
@@ -179,14 +180,21 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
         # --- Prompt Generation for Gemini API ---
         style_and_quality = "A high-quality, vibrant, and clean anime style character illustration. masterpiece, best quality, ultra-detailed, 4K, HDR, beautiful detailed eyes, perfect face."
         subject_and_pose = f"Create an image of a cheerful and cute Japanese anime girl named {character_name}. {character_description}. She should be the main focus, smiling happily and engaging with the viewer."
-        scene_context = f"The background should be related to the featured app: '{service_name}'."
+        
+        # サービス名に基づいたシーン設定
+        # NFT関連かどうかを判断
+        is_nft_related = any(keyword in service_name.lower() for keyword in ['nft', 'token', 'crypto', 'blockchain', 'web3', 'dao'])
+        
+        if is_nft_related:
+            scene_context = f"The background should be related to NFT and blockchain technology with {service_name} theme. Include digital art elements, blockchain visualization, or crypto symbols."
+        else:
+            scene_context = f"The background should be related to the featured app: '{service_name}'. Include tech elements, app interface designs, or digital environment."
 
         # Randomly apply Chibi style
         if random.random() < 0.3: # 30% chance
             style_and_quality = "chibi style, super deformed, cute, " + style_and_quality
 
-        # Gemini's image generation is part of a multimodal prompt, so we structure it as a conversation.
-        # We don't have a direct negative prompt parameter like Imagen, so we include it in the main prompt.
+        # Gemini's image generation prompt
         full_prompt = (
             f"{style_and_quality} {subject_and_pose} {scene_context} "
             f"Please avoid the following: low quality, worst quality, jpeg artifacts, blurry, noisy, text, watermark, signature, "
@@ -198,18 +206,17 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
 
         # 画像生成リクエスト
         try:
-            # 画像生成設定
-            generation_config = genai.types.GenerationConfig(
-                candidate_count=1,
-                temperature=0.4,
-                top_p=1,
-                top_k=32,
-            )
-            
             # APIリクエスト実行
-            response = model.generate_content(
+            response = client.models.generate_content(
+                model="gemini-2.0-flash-preview-image-generation",
                 contents=full_prompt,
-                generation_config=generation_config
+                config=types.GenerateContentConfig(
+                    response_modalities=['TEXT', 'IMAGE'],
+                    temperature=0.4,
+                    top_p=1,
+                    top_k=32,
+                    candidate_count=1
+                )
             )
             
             # デバッグ情報を追加
@@ -218,13 +225,12 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
             # 画像データ変数の初期化
             image_data = None
             
-            # レスポンスから画像データを抽出（複数の方法を試す）
-            # パターン1: candidates -> content -> parts -> inline_data
+            # 新しいAPIレスポンス形式からの画像データ抽出
             if hasattr(response, 'candidates') and response.candidates:
                 logging.info(f"Found {len(response.candidates)} candidates")
                 
                 for candidate_idx, candidate in enumerate(response.candidates):
-                    if not image_data and hasattr(candidate, 'content') and candidate.content:
+                    if hasattr(candidate, 'content') and candidate.content:
                         logging.info(f"Processing candidate {candidate_idx}")
                         
                         if hasattr(candidate.content, 'parts') and candidate.content.parts:
@@ -236,42 +242,11 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
                                 if hasattr(part, 'text') and part.text:
                                     logging.info(f"Text in part {part_idx}: {part.text[:50]}...")
                                 
-                                # パターン1: inline_data -> data
-                                if not image_data and hasattr(part, 'inline_data') and part.inline_data:
-                                    if hasattr(part.inline_data, 'data') and part.inline_data.data:
-                                        image_data = part.inline_data.data
-                                        logging.info(f"Found image data in part {part_idx} (inline_data.data)")
-                                
-                                # パターン2: data 直接参照
-                                elif not image_data and hasattr(part, 'data') and part.data:
-                                    image_data = part.data
-                                    logging.info(f"Found image data in part {part_idx} (data)")
-                                
-                                # パターン3: image -> data
-                                elif not image_data and hasattr(part, 'image') and part.image:
-                                    if hasattr(part.image, 'data') and part.image.data:
-                                        image_data = part.image.data
-                                        logging.info(f"Found image data in part {part_idx} (image.data)")
-            
-            # パターン4: 直接responseからの抽出を試みる
-            if not image_data and hasattr(response, 'text'):
-                logging.info("Attempting to extract image from response.text")
-                # Base64エンコードされた画像を探す処理を追加
-                import re
-                import base64
-                
-                text = response.text
-                # Base64パターンを検索
-                base64_pattern = r'data:image\/[^;]+;base64,([^"\s]+)'
-                match = re.search(base64_pattern, text)
-                
-                if match:
-                    try:
-                        base64_data = match.group(1)
-                        image_data = base64.b64decode(base64_data)
-                        logging.info("Extracted base64 image data from text response")
-                    except Exception as base64_error:
-                        logging.error(f"Failed to decode base64 data: {base64_error}")
+                                # 画像データの抽出 (inline_data)
+                                if hasattr(part, 'inline_data') and part.inline_data:
+                                    image_data = part.inline_data.data
+                                    logging.info(f"Found image data in part {part_idx}")
+                                    break
             
             # 画像データが見つからない場合
             if not image_data:
