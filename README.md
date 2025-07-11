@@ -56,6 +56,7 @@ pip install -r x_poster/requirements.txt
   {
     "gemini_api_key": "YOUR_GEMINI_API_KEY",
     "google_cloud_project_id_aituber": "415545278337",
+    "audio_output_device_index": null,
 
     "languages": {
         "ja": {
@@ -119,7 +120,39 @@ pip install -r x_poster/requirements.txt
   SPREADSHEET_ID="YOUR_SPREADSHEET_ID"
   ```
 
-### 5. 認証情報ファイル
+### 5. 音声出力デバイスの設定
+
+AITuberシステムは、音声出力デバイスを指定して使用することができます。これは、SYNCROOMや他の仮想オーディオデバイスを使用して、OBSやVSeeFaceなどのソフトウェアと連携する場合に特に有用です。
+
+#### 利用可能な音声デバイスの確認
+
+以下のコマンドを実行して、利用可能な音声デバイスの一覧を確認します。
+
+```bash
+python list_audio_devices.py
+```
+
+出力例:
+```
+List of available audio devices:
+  Index 0: スピーカー (Realtek High Definition Audio)
+    Type: Output, Max Output Channels: 2
+    (Default Output Device)
+  --------------------
+  Index 1: SYNCROOM Audio Driver
+    Type: Output, Max Output Channels: 2
+  --------------------
+  Index 2: マイク (ヘッドセット)
+    Type: Input, Max Input Channels: 1
+    (Default Input Device)
+  --------------------
+```
+
+#### 設定ファイルでの音声デバイス指定
+
+`config.local.json` ファイルに `audio_output_device_index` パラメータを追加して、使用したい音声出力デバイスのインデックスを指定します。例えば、SYNCROOM Audio Driverを使用する場合は、上記の例ではインデックス 1 を指定します。
+
+### 6. 認証情報ファイル
 
 - **X Posterシステム用Google Cloudサービスアカウントキー**: `credentials/aituber-post-52b1cd18b086.json` を配置します。このファイルはGoogle Cloud Project ID `737410221351` に関連付けられています。
 

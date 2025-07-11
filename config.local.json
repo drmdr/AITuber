@@ -1,5 +1,6 @@
 {
     "gemini_api_key": "AIzaSyDJl4VD4qFXN4ERixcN0P7McoyH3dSC8R4",
+    "audio_output_device_index": 7,
     "languages": {
         "ja": {
             "character_name": "モナミン",
