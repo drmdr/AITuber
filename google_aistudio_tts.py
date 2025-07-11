@@ -1,100 +1,87 @@
-# ==============================================================================
-# Gemini API TTS Client
-# ------------------------------------------------------------------------------
-# このファイルは、Google Gemini APIの公式ドキュメントに基づき実装されています。
-# 音声合成のコアロジックであり、安定動作の要です。
-# 不用意な変更はシステム全体の動作に影響を与える可能性があるため、
-# 仕様変更やAPIのアップデート時以外は、原則として改変しないでください。
-# ==============================================================================
-import traceback
+import google.generativeai as genai
+import os
+import json
+import sounddevice as sd
+import soundfile as sf
+import tempfile
+import sys
+import io
 
-try:
-    from google import genai
-    from google.genai import types
-    GENAI_AVAILABLE = True
-except ImportError:
-    genai = None
-    types = None
-    GENAI_AVAILABLE = False
-    # エラーメッセージも、より正確な情報に更新
-    print("FATAL: The 'google-genai' package is installed, but the 'google.genai' module could not be imported. Check for installation issues.")
+# 標準出力のエンコーディングをUTF-8に設定
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-class GoogleAIStudioTTS:
-    """
-    Google Gemini APIのText-to-Speechを使用して音声を合成するクラス。
-    公式の 'google-genai' SDK を使用します。
-    """
+# --- Config ---
+CONFIG_FILE = 'config.local.json'
+API_KEY_NAME = 'gemini_api_key'
 
-    def __init__(self, api_key=None):
-        """
-        APIキーを使用してクライアントを初期化します。
-        """
-        if not GENAI_AVAILABLE:
-            raise ImportError("google-genaiライブラリが見つかりません。pip install google-genai を実行してください。")
-        
+def load_api_key():
+    """config.local.jsonからAPIキーを読み込む"""
+    if not os.path.exists(CONFIG_FILE):
+        print(f"エラー: 設定ファイルが見つかりません: {CONFIG_FILE}")
+        return None
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        api_key = config.get(API_KEY_NAME)
         if not api_key:
-            raise ValueError("APIキーが指定されていません。")
-            
-        # 公式ドキュメントに準拠し、genai.Clientを使用します。
-        self.client = genai.Client(api_key=api_key)
-        print("GoogleAIStudioTTS: Gemini API client initialized successfully.")
-
-    def synthesize_speech(self, text, voice_name="Zephyr", prompt=None):
-        """
-        テキストを音声に変換します。
-        
-        Args:
-            text (str): 音声に変換するテキスト。
-            voice_name (str): 使用する音声の名前 (例: "Zephyr")。
-            prompt (str, optional): 音声のトーンやスタイルを指定するプロンプト。
-        
-        Returns:
-            bytes: 音声データ。エラーの場合はNone。
-        """
-        print(f"[DEBUG] Synthesizing speech with Gemini API. Voice: {voice_name}, Text: '{text[:50]}...'")
-        
-        # プロンプトがあればテキストの前に付与する
-        synthesis_text = f"{prompt}: {text}" if prompt else text
-
-        try:
-            # 公式ドキュメントに準拠したTTSリクエスト
-            response = self.client.models.generate_content(
-                model="models/gemini-2.5-flash-preview-tts",
-                contents=synthesis_text,
-                config=types.GenerateContentConfig(
-                    response_modalities=["AUDIO"],
-                    speech_config=types.SpeechConfig(
-                        voice_config=types.VoiceConfig(
-                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                voice_name=voice_name,
-                            )
-                        )
-                    ),
-                )
-            )
-            
-            # レスポンスから音声データを抽出
-            audio_data = response.candidates[0].content.parts[0].inline_data.data
-            print(f"[DEBUG] Gemini API: Audio data received ({len(audio_data)} bytes).")
-            return audio_data
-
-        except Exception as e:
-            print(f"FATAL: An error occurred during Gemini API speech synthesis: {e}")
-            traceback.print_exc()
+            print(f"エラー: {CONFIG_FILE} に {API_KEY_NAME} が見つかりません。")
             return None
+        print("APIキーを正常に読み込みました。")
+        return api_key
+    except Exception as e:
+        print(f"設定ファイルの読み込み中にエラーが発生しました: {e}")
+        return None
 
-    def synthesize_to_file(self, text, output_file, voice_name="Zephyr", prompt=None):
-        """
-        テキストを音声に変換し、ファイルに保存します。
-        """
-        audio_data = self.synthesize_speech(text, voice_name, prompt)
-        if audio_data:
-            try:
-                with open(output_file, "wb") as f:
-                    f.write(audio_data)
-                print(f"[DEBUG] Audio content written to {output_file}")
-                return True
-            except Exception as e:
-                print(f"FATAL: Error saving audio file: {e}")
-                traceback.print_exc()
-        return False
+def main():
+    """TTSのテストを実行するメイン関数"""
+    api_key = load_api_key()
+    if not api_key:
+        return
+
+    try:
+        genai.configure(api_key=api_key)
+        print("Gemini APIクライアントを正常に初期化しました。")
+    except Exception as e:
+        print(f"Gemini APIクライアントの初期化に失敗しました: {e}")
+        return
+
+    text_to_speak = "This is a test of the text-to-speech functionality."
+    print(f'合成するテキスト: "{text_to_speak}"')
+
+    try:
+        print("TTSモデルを初期化します...")
+        # 正しいモデル名を使用
+        tts_model = genai.GenerativeModel('models/gemini-2.5-flash-preview-tts')
+
+        print("音声合成API `generate_content` を呼び出します...")
+        # 応答形式として音声を指定
+        generation_config = genai.types.GenerationConfig(
+            response_mime_type="audio/wav"
+        )
+        response = tts_model.generate_content(
+            text_to_speak,
+            generation_config=generation_config
+        )
+
+        # 音声データを取得
+        audio_data = response.candidates[0].content.parts[0].blob.data
+        print("音声合成に成功しました。")
+
+        # 一時ファイルに保存して再生
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+            temp_filename = temp_file.name
+            temp_file.write(audio_data)
+        
+        print(f"一時ファイルを作成しました: {temp_filename}")
+        data, samplerate = sf.read(temp_filename)
+        print("音声ファイルを読み込みました。再生します...")
+        sd.play(data, samplerate)
+        sd.wait()
+        print("再生が完了しました。")
+        os.remove(temp_filename)
+
+    except Exception as e:
+        print(f"音声合成中に予期せぬエラーが発生しました: {e}")
+
+if __name__ == "__main__":
+    main()

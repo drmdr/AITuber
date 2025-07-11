@@ -5,12 +5,24 @@
 import sys
 import io
 import os
+import argparse
 
 # モジュール検索パスにカレントディレクトリを追加
 sys.path.append(os.getcwd())
 
 # WindowsのコンソールでUnicode文字が正しく表示されるように標準出力をUTF-8に設定
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+# コマンドライン引数の処理
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='AITuberシステム')
+    parser.add_argument('--language', type=str, choices=['ja', 'en', 'es'], default='ja',
+                        help='AITuberが使用する言語 (ja: 日本語, en: 英語, es: スペイン語)')
+    parser.add_argument('--mode', type=str, choices=['interactive', 'script'], default=None,
+                        help='動作モード (interactive: インタラクティブモード, script: 原稿読み上げモード)')
+    parser.add_argument('--script-dir', type=str, default='scripts',
+                        help='原稿ファイルが格納されているディレクトリパス')
+    return parser.parse_args()
 
 import json
 from pathlib import Path
@@ -20,15 +32,31 @@ CONFIG_FILE_PATH = "config.local.json"  # ローカル設定ファイル
 RESPONSE_PATTERNS_FILE_PATH = "response_patterns.json" # 特殊応答パターンファイル
 LOG_DIR = "logs"  # ログディレクトリ
 
-# --- APIキーの読み込み --- #
+# --- 設定ファイルの読み込み --- #
 GEMINI_API_KEY = None
+AUDIO_OUTPUT_DEVICE_INDEX = None  # 音声出力デバイスのインデックス
+
 try:
     with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
         config_data = json.load(f)
+    
+    # Gemini APIキーの読み込み
     GEMINI_API_KEY = config_data.get("gemini_api_key")
-    if not GEMINI_API_KEY:
-        raise ValueError(f"エラー: Gemini APIキーが {CONFIG_FILE_PATH} に設定されていません。")
-    print(f"Gemini APIキーを {CONFIG_FILE_PATH} から正常に読み込みました。")
+    if GEMINI_API_KEY:
+        print("Gemini APIキーを config.local.json から正常に読み込みました。")
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=GEMINI_API_KEY)
+            print("Gemini APIクライアントを正常に初期化しました。")
+        except Exception as e:
+            print(f"エラー: Gemini APIクライアントの初期化に失敗しました: {e}")
+    else:
+        print("警告: config.local.json に Gemini APIキーが見つかりません。")
+    
+    # 音声出力デバイスの設定読み込み
+    AUDIO_OUTPUT_DEVICE_INDEX = config_data.get("audio_output_device_index")
+    if AUDIO_OUTPUT_DEVICE_INDEX is not None:
+        print(f"音声出力デバイスインデックスを設定しました: {AUDIO_OUTPUT_DEVICE_INDEX}")
 except FileNotFoundError:
     print(f"エラー: 設定ファイル {CONFIG_FILE_PATH} が見つかりません。プログラムを終了します。")
     exit()
@@ -79,15 +107,27 @@ if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR) # ログディレクトリが存在しない場合は作成
 
 # --- グローバル変数 (言語設定など) --- #
-TARGET_LANGUAGE = "ja"  # AITuberが使用する言語コード (デフォルト: 日本語、起動時引数で変更可能)
-TARGET_LANGUAGE_BCP47 = "ja-JP"  # AITuberが使用する言語のBCP47コード (デフォルト: 日本語)
-
 # 対応言語の定義
 SUPPORTED_LANGUAGES_MAP = {  # アプリケーション内部で使用する言語コードとBCP47コードのマッピング
     "ja": "ja-JP",
     "en": "en-US",
     "es": "es-ES"
 }
+
+# コマンドライン引数を解析
+args = parse_arguments()
+
+# コマンドライン引数から言語設定を取得
+TARGET_LANGUAGE = args.language  # AITuberが使用する言語コード (デフォルト: 日本語、起動時引数で変更可能)
+
+# 言語コードからBCP47コードを設定
+if TARGET_LANGUAGE in SUPPORTED_LANGUAGES_MAP:
+    TARGET_LANGUAGE_BCP47 = SUPPORTED_LANGUAGES_MAP[TARGET_LANGUAGE]  # AITuberが使用する言語のBCP47コード
+else:
+    TARGET_LANGUAGE_BCP47 = "ja-JP"  # 不正な言語コードの場合は日本語を使用
+
+# コマンドライン引数から動作モードを取得
+SELECTED_MODE = args.mode  # コマンドライン引数で指定された動作モード
 LANGUAGE_NAMES = {  # 各言語コードに対応する表示名
     "ja": "Japanese",
     "en": "English",
@@ -271,17 +311,30 @@ try:
     with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
         config_data_global = json.load(f) # グローバルスコープ用の変数名
 
-    # グローバルスコープでは、デフォルト言語(日本語 'ja') の設定を試みる
-    default_lang_settings = config_data_global.get("languages", {}).get("ja", {})
-    character_name = default_lang_settings.get("character_name", character_name)
-    persona = default_lang_settings.get("persona", persona)
-    greeting = default_lang_settings.get("greeting", greeting)
-    guidelines = default_lang_settings.get("guidelines", guidelines)
+    # デバッグ情報を追加
+    print(f"デバッグ: コマンドライン引数で指定された言語: {TARGET_LANGUAGE}")
+    
+    # コマンドライン引数から指定された言語の設定を読み込む
+    selected_lang_settings = config_data_global.get("languages", {}).get(TARGET_LANGUAGE, {})
+    print(f"デバッグ: 選択された言語設定の存在: {bool(selected_lang_settings)}")
+    
+    # 設定が存在しない場合はデフォルト言語(日本語 'ja')にフォールバック
+    if not selected_lang_settings:
+        selected_lang_settings = config_data_global.get("languages", {}).get("ja", {})
+        print(f"警告: {TARGET_LANGUAGE} の設定が見つからないため、日本語設定を使用します。")
+    
+    character_name = selected_lang_settings.get("character_name", character_name)
+    persona = selected_lang_settings.get("persona", persona)
+    greeting = selected_lang_settings.get("greeting", greeting)
+    guidelines = selected_lang_settings.get("guidelines", guidelines)
+    
+    print(f"デバッグ: 設定された character_name: {character_name}")
+    print(f"デバッグ: 設定された persona の先頭部分: {persona[:30]}...")
 
     full_persona = persona
     if guidelines: # ガイドラインが存在する場合のみ結合
         full_persona += "\n\nガイドライン:\n- " + "\n- ".join(guidelines)
-    print(f"情報: {CONFIG_FILE_PATH} からグローバル設定（日本語優先）を読み込みました。")
+    print(f"情報: {CONFIG_FILE_PATH} から {LANGUAGE_NAMES.get(TARGET_LANGUAGE, TARGET_LANGUAGE)} 設定を読み込みました。")
 
 except (FileNotFoundError, json.JSONDecodeError) as e:
     print(f"警告: 設定ファイル '{CONFIG_FILE_PATH}' が見つかりません、またはJSON形式が正しくありません。グローバル設定にはデフォルト値を使用します。 Error: {e}")
@@ -342,602 +395,376 @@ def get_gcp_voice_name(language_code="ja-JP"):
         # return "en-US-Wavenet-D"  # 女性
         # return "en-US-Wavenet-A"  # 男性
     elif language_code == "es-ES":
-        return "es-ES-Wavenet-D" # 女性
-        # return "es-ES-Wavenet-B"  # 男性
+        return "es-ES-Neural2-A"  # スペイン語 女性
     else:
-        print(f"警告: 言語コード '{language_code}' は音声選択で明示的に設定されていません。en-USのデフォルト音声を使用します。")
-        return "en-US-Chirp-HD-F"
+        return "ja-JP-Neural2-B"  # デフォルトは日本語女性音声
 
-def translate_text(text, target_language):
-    """
-    テキストを指定された言語に翻訳します。
-    target_language: 'ja-JP', 'en-US', 'es-ES' など
+# --- ログ関連関数 --- #
+import os
+import datetime
+
+def log_to_file(speaker, message, language=""):
+    """会話内容をログファイルに記録します。
+    
+    Args:
+        speaker (str): 発言者名
+        message (str): メッセージ内容
+        language (str, optional): 言語コードや言語名。デフォルトは空文字列。
     """
     try:
-        # deep-translatorは 'ja' のような短い言語コードを期待する
-        target_lang_short = target_language.split('-')[0]
-        # GoogleTranslatorインスタンスを都度生成
-        translated = GoogleTranslator(source='auto', target=target_lang_short).translate(text)
-        return translated
-    except Exception as e:
-        print(f"翻訳エラーが発生しました: {e}")
-        return text # エラー時は元のテキストを返す
-
-def log_to_file(speaker, message, language=None):
-    """
-    会話ログをファイルに保存します。
-    """
-    try:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        language_info = f" [{language}]" if language else ""
-        log_entry = f"[{timestamp}]{language_info} {speaker}: {message}\n"
+        # ログディレクトリの確認と作成
+        log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        os.makedirs(log_dir, exist_ok=True)
         
-        with open(LOG_FILE_PATH, "a", encoding="utf-8") as log_file:
-            log_file.write(log_entry)
+        # 日付フォーマットのファイル名を作成
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        log_file = os.path.join(log_dir, f"conversation_{today}.log")
+        
+        # 現在時刻を取得
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        
+        # 言語情報があれば追加
+        lang_info = f" ({language})" if language else ""
+        
+        # ログメッセージのフォーマット
+        log_message = f"[{timestamp}] {speaker}{lang_info}: {message}\n\n"
+        
+        # ファイルに追記
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(log_message)
     except Exception as e:
-        print(f"ログの保存中にエラーが発生しました: {e}")
+        # ログ書き込みエラーはプログラム全体に影響しないようにする
+        print(f"警告: ログ書き込みエラー: {e}")
 
-def preprocess_text_for_tts(text):
+# --- TTS関連関数 --- #
+import wave
+
+def wave_file(filename, pcm, channels=1, rate=24000, sample_width=2):
+    """音声データをWAVファイルとして保存します。
+    
+    Args:
+        filename (str): 保存するファイル名
+        pcm (bytes): 音声データ
+        channels (int): チャンネル数。デフォルトは1
+        rate (int): サンプルレート。デフォルトは24000Hz
+        sample_width (int): サンプル幅。デフォルトは2
     """
-    テキストを音声合成用に前処理します。
-    記号や不要な文字を削除または置換します。
-    """
-    # 削除する記号のリスト
-    symbols_to_remove = ['（', '）', '「', '」', '『', '』', '【', '】', 
-                       '♪', '♥', '♡', '❤', '★', '☆', '✨', '♦', '♠', '♣',
-                       '〜', '～',
-                       # マークダウン記号を追加
-                       '*', '#', '`', '_', '-', '+', '=', '|', '\\', '/', 
-                       '>', '<', '[', ']', '{', '}', '(', ')', ':', ';',
-                       '!', '?', '.', ',', '@', '$', '%', '^', '&']
-    
-    # 空白に置換する記号のリスト
-    symbols_to_space = ['・', '…', '⋯', '―', '－', '—']
-    
-    # 特定の記号を削除
-    for symbol in symbols_to_remove:
-        text = text.replace(symbol, '')
-    
-    # 特定の記号を空白に置換
-    for symbol in symbols_to_space:
-        text = text.replace(symbol, ' ')
-    
-    # マークダウン形式のテキストを処理（例: **太字** や *イタリック* などのパターン）
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **太字** -> 太字
-    text = re.sub(r'\*(.+?)\*', r'\1', text)        # *イタリック* -> イタリック
-    text = re.sub(r'`(.+?)`', r'\1', text)           # `コード` -> コード
-    text = re.sub(r'\[(.+?)\]\(.+?\)', r'\1', text)  # [リンクテキスト](URL) -> リンクテキスト
-    
-    # 連続する空白を1つにまとめる
-    text = ' '.join(text.split())
-    
-    return text
+    with wave.open(filename, "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(sample_width)
+        wf.setframerate(rate)
+        wf.writeframes(pcm)
 
 def get_tts_provider():
+    """使用するTTSプロバイダーを返します。
+    
+    Returns:
+        str: TTSプロバイダー名 ("google_aistudio")
     """
-    設定ファイルからTTSプロバイダーを取得します
+    # Gemini API TTS (Google AI Studio TTS) を使用
+    return "google_aistudio"
+
+def play_audio_google_aistudio(text, language_code="ja-JP", output_device_index=None):
+    """テキストをGemini API TTSで音声合成して再生します。
+    
+    Args:
+        text (str): 音声合成するテキスト
+        language_code (str): 言語コード。デフォルトは"ja-JP"
+        output_device_index (int, optional): 音声出力デバイスのインデックス。Noneの場合はデフォルトデバイスを使用。
     """
     try:
-        with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
-            config_data = json.load(f)
-        
-        tts_settings = config_data.get("tts_settings", {})
-        return tts_settings.get("provider", "gcp")
-    except Exception as e:
-        print(f"TTSプロバイダーの取得に失敗しました: {e}")
-        return "gcp"  # デフォルトはGCP
+        from google.generativeai import types
+        import os
+        import tempfile
 
-def get_tts_settings():
-    """
-    設定ファイルからTTS設定を取得します
-    """
-    try:
-        with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        
-        return config.get("tts_settings", {})
-    except Exception as e:
-        print(f"TTS設定の取得に失敗しました: {e}")
-        return {}  # デフォルトは空の辞書
+        if not GEMINI_API_KEY:
+            print("警告: Gemini APIキーが設定されていないため、音声合成をスキップします。")
+            return
 
-def play_audio_google_aistudio(text_to_speak, language_code=None, max_retries=3):
-    # 引数で言語が指定されなかった場合、グローバルのターゲット言語を使用
-    if language_code is None:
-        language_code = TARGET_LANGUAGE_BCP47
-    """
-    Google AIスタジオのText-to-Speech を使用して音声を合成し、再生します。
-    エラーが発生した場合はリトライします。
-    """
-    # google_aistudio_tts_clientがない場合はエラーを表示するが終了しない
-    if not google_aistudio_tts_client:
-        print("\n\n警告: Google AIスタジオ TTS クライアントが初期化されていません。音声なしで続行します。\n")
-        return
+        print("デバッグ: TTS音声合成を開始します...")
 
-    # デバッグ情報表示
-    print(f"\n[DEBUG] 入力テキストの長さ: {len(text_to_speak)} 文字")
-    print(f"[DEBUG] 入力テキストの最初の100文字: {text_to_speak[:100]}")
-    
-    # テキストを前処理
-    processed_text = preprocess_text_for_tts(text_to_speak)
-    print(f"[DEBUG] 処理後テキストの長さ: {len(processed_text)} 文字")
-    
-    # TTS設定を取得
-    tts_settings = get_tts_settings()
-    voice_name = tts_settings.get("voice", "Zephyr")
-    prompt = tts_settings.get("prompt", "Speak with the bright, innocent, and charming voice of a cheerful anime girl or VTuber. Use a clear, slightly high-pitched tone with a youthful and expressive energy. Your voice should sound honest, cute, and friendly. Emphasize emotional warmth and playfulness in your delivery.")
-    
-    # テキストを文章単位で分割する
-    # 日本語と英語の文章の区切り文字で分割
-    sentence_endings = ['.', '!', '?', '。', '！', '？']  # 英語と日本語の区切り文字
-    
-    # 文章を分割する正規表現パターン
-    pattern = f"([^{''.join(sentence_endings)}]*[{''.join(sentence_endings)}])"
-    
-    # 文章を分割
-    sentences = re.findall(pattern, processed_text)
-    
-    # 残りのテキストがあれば追加
-    remaining = re.sub(pattern, '', processed_text)
-    if remaining:
-        sentences.append(remaining)
-    
-    # 各文章を適切な長さのチャンクに結合
-    max_chars = 200  # 各チャンクの最大文字数
-    text_chunks = []
-    current_chunk = ""
-    
-    for sentence in sentences:
-        # 現在のチャンクに文章を追加しても最大文字数を超えない場合
-        if len(current_chunk) + len(sentence) <= max_chars:
-            current_chunk += sentence
-        else:
-            # 現在のチャンクが空でなければ追加
-            if current_chunk:
-                text_chunks.append(current_chunk)
-            
-            # 文章自体が最大文字数を超える場合は分割
-            if len(sentence) > max_chars:
-                # 長い文章を分割
-                for i in range(0, len(sentence), max_chars):
-                    text_chunks.append(sentence[i:i+max_chars])
-                current_chunk = ""
-            else:
-                # 新しいチャンクとして設定
-                current_chunk = sentence
-    
-    # 最後のチャンクがあれば追加
-    if current_chunk:
-        text_chunks.append(current_chunk)
-    
-    # チャンクが空の場合は元のテキストをそのまま使用
-    if not text_chunks:
-        text_chunks = [processed_text]
-    
-    print(f"[DEBUG] テキストを{len(text_chunks)}個のチャンクに分割しました")
-    
-    # 各チャンクを処理
-    for i, chunk in enumerate(text_chunks):
-        print(f"[DEBUG] チャンク {i+1}/{len(text_chunks)} の長さ: {len(chunk)} 文字")
-        
-        # リトライロジックを実装
-        for retry in range(max_retries):
-            try:
-                print(f"[DEBUG] 音声合成リクエスト開始 (チャンク {i+1}/{len(text_chunks)}, 試行 {retry+1}/{max_retries})")
-                
-                # Google AIスタジオで音声合成
-                audio_data = google_aistudio_tts_client.synthesize_speech(chunk, voice_name, prompt)
-                
-                if audio_data:
-                    print(f"[DEBUG] 音声合成成功: オーディオデータサイズ {len(audio_data)} バイト")
-                    
-                    # 音声再生
-                    play_audio(audio_data)
-                    print(f"[DEBUG] 音声再生完了 (チャンク {i+1}/{len(text_chunks)})")
-                    
-                    # 成功した場合はリトライループを抜ける
-                    break
-                else:
-                    raise Exception("音声データの取得に失敗しました")
-                
-            except Exception as e:
-                if retry < max_retries - 1:
-                    print(f"音声合成に失敗しました。リトライ中... ({retry+1}/{max_retries})")
-                    print(f"エラーの詳細: {e}")
-                    traceback.print_exc()  # トレースバックを表示
-                    time.sleep(1)  # リトライ前に少し待機
-                else:
-                    print(f"音声合成に失敗しました。最大リトライ回数に達しました。")
-                    print(f"エラーの詳細: {e}")
-                    traceback.print_exc()  # トレースバックを表示
-
-def play_audio_gcp(text_to_speak, language_code="ja-JP", max_retries=3):
-    """
-    Google Cloud Text-to-Speech を使用して音声を合成し、再生します。
-    エラーが発生した場合はリトライします。
-    """
-    # gcp_tts_clientがない場合はエラーを表示するが終了しない
-    if not gcp_tts_client:
-        print("\n\n警告: GCP TTS クライアントが初期化されていません。音声なしで続行します。\n")
-        return
-
-    # デバッグ情報表示
-    print(f"\n[DEBUG] 入力テキストの長さ: {len(text_to_speak)} 文字")
-    print(f"[DEBUG] 入力テキストの最初の100文字: {text_to_speak[:100]}")
-    
-    # テキストを前処理
-    processed_text = preprocess_text_for_tts(text_to_speak)
-    print(f"[DEBUG] 処理後テキストの長さ: {len(processed_text)} 文字")
-    
-    # テキストを文章単位で分割する
-    # 日本語と英語の文章の区切り文字で分割
-    sentence_endings = ['.', '!', '?', '。', '！', '？']  # 英語と日本語の区切り文字
-    
-    # 文章を分割する正規表現パターン
-    pattern = f"([^{''.join(sentence_endings)}]*[{''.join(sentence_endings)}])"
-    
-    # 文章を分割
-    sentences = re.findall(pattern, processed_text)
-    
-    # 残りのテキストがあれば追加
-    remaining = re.sub(pattern, '', processed_text)
-    if remaining:
-        sentences.append(remaining)
-    
-    # 各文章を適切な長さのチャンクに結合
-    max_chars = 200  # 各チャンクの最大文字数
-    text_chunks = []
-    current_chunk = ""
-    
-    for sentence in sentences:
-        # 現在のチャンクに文章を追加しても最大文字数を超えない場合
-        if len(current_chunk) + len(sentence) <= max_chars:
-            current_chunk += sentence
-        else:
-            # 現在のチャンクが空でなければ追加
-            if current_chunk:
-                text_chunks.append(current_chunk)
-            
-            # 文章自体が最大文字数を超える場合は分割
-            if len(sentence) > max_chars:
-                # 長い文章を分割
-                for i in range(0, len(sentence), max_chars):
-                    text_chunks.append(sentence[i:i+max_chars])
-                current_chunk = ""
-            else:
-                # 新しいチャンクとして設定
-                current_chunk = sentence
-    
-    # 最後のチャンクがあれば追加
-    if current_chunk:
-        text_chunks.append(current_chunk)
-    
-    # チャンクが空の場合は元のテキストをそのまま使用
-    if not text_chunks:
-        text_chunks = [processed_text]
-    
-    print(f"[DEBUG] テキストを{len(text_chunks)}個のチャンクに分割しました")
-    
-    # 各チャンクを処理
-    for i, chunk in enumerate(text_chunks):
-        print(f"[DEBUG] チャンク {i+1}/{len(text_chunks)} の長さ: {len(chunk)} 文字")
-        
-        # 合成入力の設定
-        synthesis_input = texttospeech.SynthesisInput(text=chunk)
-        
-        # 音声設定
-        voice_name = get_gcp_voice_name(language_code)
-        voice = texttospeech.VoiceSelectionParams(
-            language_code=language_code,
-            name=voice_name
+        # TTSに最適化されたsynthesize_speechを使用し、エラー解決とパフォーマンス向上を図る
+        response = genai.synthesize_speech(
+            model='models/text-to-speech',
+            text=text,
+            voice_name='zephyr' # ボイスをzephyrに固定
         )
-        print(f"[DEBUG] 使用する音声: {voice_name} (言語: {language_code})")
+
+        # 音声データの取得
+        audio_data = response['audio_content']
+
+        # 一時ファイルに保存して再生
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+            temp_filename = temp_file.name
+            temp_file.write(audio_data)
         
-        # オーディオ設定
-        audio_config = texttospeech.AudioConfig(
-            audio_encoding=texttospeech.AudioEncoding.LINEAR16,
-            sample_rate_hertz=GCP_SAMPLE_RATE
-        )
+        print(f"音声ファイルを生成しました: {temp_filename}")
         
-        # リトライロジックを実装
-        for retry in range(max_retries):
-            try:
-                print(f"[DEBUG] 音声合成リクエスト開始 (チャンク {i+1}/{len(text_chunks)}, 試行 {retry+1}/{max_retries})")
-                
-                # 音声合成リクエスト
-                response = gcp_tts_client.synthesize_speech(
-                    input=synthesis_input,
-                    voice=voice,
-                    audio_config=audio_config
-                )
-                
-                # 音声データを取得
-                audio_data = response.audio_content
-                print(f"[DEBUG] 音声合成成功: オーディオデータサイズ {len(audio_data)} バイト")
-                
-                # 音声再生
-                play_audio(audio_data)
-                print(f"[DEBUG] 音声再生完了 (チャンク {i+1}/{len(text_chunks)})")
-                
-                # 成功した場合はリトライループを抜ける
+        # 音声再生
+        import sounddevice as sd
+        import soundfile as sf
+        
+        data, samplerate = sf.read(temp_filename)
+        
+        device_to_use = output_device_index if output_device_index is not None else AUDIO_OUTPUT_DEVICE_INDEX
+        
+        if device_to_use is not None:
+            print(f"オーディオ出力デバイス {device_to_use} で再生します。")
+            sd.play(data, samplerate, device=device_to_use)
+        else:
+            print("デフォルトのオーディオ出力デバイスで再生します。")
+            sd.play(data, samplerate)
+            
+        sd.wait()
+        print("音声の再生が完了しました。")
+        
+        # 一時ファイルの削除
+        os.remove(temp_filename)
+
+    except Exception as e:
+        print(f"Gemini API TTS の再生中にエラーが発生しました: {e}")
+        import traceback
+        traceback.print_exc()
+
+# --- 原稿読み上げモード --- #
+def script_mode(script_dir="scripts"):
+    """原稿読み上げモードのメイン処理
+    
+    Args:
+        script_dir (str): 原稿ファイルが格納されているディレクトリパス。デフォルトは "scripts"
+    """
+    global TARGET_LANGUAGE, TARGET_LANGUAGE_BCP47, full_persona, character_name, persona, greeting, guidelines
+    
+    print(f"\n=== 原稿読み上げモードを開始します ===\n")
+    print(f"言語: {LANGUAGE_NAMES.get(TARGET_LANGUAGE, 'Unknown')} ({TARGET_LANGUAGE_BCP47})")
+    print(f"原稿ディレクトリ: {script_dir}\n")
+    
+    # 原稿ディレクトリの存在確認
+    if not os.path.exists(script_dir):
+        print(f"エラー: 原稿ディレクトリ '{script_dir}' が存在しません。")
+        print(f"ディレクトリを作成して、その中にテキストファイルを配置してください。")
+        os.makedirs(script_dir)
+        print(f"ディレクトリ '{script_dir}' を作成しました。")
+        return
+    
+    # テキストファイルの一覧を取得
+    text_files = [f for f in os.listdir(script_dir) if f.endswith('.txt')]
+    
+    if not text_files:
+        print(f"エラー: ディレクトリ '{script_dir}' にテキストファイル (.txt) が見つかりません。")
+        print("テキストファイルを配置してから再度実行してください。")
+        return
+    
+    # ファイル一覧を表示
+    print("利用可能な原稿ファイル:")
+    for i, file in enumerate(text_files, 1):
+        print(f"{i}. {file}")
+    
+    # ファイル選択
+    while True:
+        try:
+            choice = input("\n読み上げるファイルの番号を入力してください (終了する場合は 'q' を入力): ")
+            
+            if choice.lower() == 'q':
+                print("原稿読み上げモードを終了します。")
+                return
+            
+            file_index = int(choice) - 1
+            if 0 <= file_index < len(text_files):
+                selected_file = text_files[file_index]
                 break
-                
-            except Exception as e:
-                if retry < max_retries - 1:
-                    print(f"音声合成に失敗しました。リトライ中... ({retry+1}/{max_retries})")
-                    print(f"エラーの詳細: {e}")
-                    traceback.print_exc()  # トレースバックを表示
-                    time.sleep(1)  # リトライ前に少し待機
-                else:
-                    print(f"音声合成に失敗しました。最大リトライ回数に達しました。")
-                    print(f"エラーの詳細: {e}")
-                    traceback.print_exc()  # トレースバックを表示
-
-def play_audio(audio_data):
-    # 音声データをNumPy配列に変換
-    try:
-        audio_np = np.frombuffer(audio_data, dtype=np.int16)
-    except Exception as e:
-        print(f"GCP TTS からの音声データの変換に失敗しました: {e}")
-        traceback.print_exc()
-        return
-    
-    # 音声データが空かチェック
-    if audio_np.size == 0:
-        print("GCP TTS から空の音声データを受信しました。再生するものがありません。")
-        return
-
-    try:
-        devices = sd.query_devices()
-        output_devices = [device for device in devices if device['max_output_channels'] > 0]
-
-        syncroom_device_id = None
-        shure_device_id = None
-        realtek_device_id = None
-        default_device_id = None
-
-        for device in output_devices:
-            if 'Yamaha SYNCROOM Driver' in device['name']:
-                syncroom_device_id = device['index']
-                break 
-            elif 'Shure' in device['name']:
-                shure_device_id = device['index']
-            elif 'Realtek' in device['name']:
-                realtek_device_id = device['index']
-            
-            if isinstance(sd.default.device, (list, tuple)) and len(sd.default.device) > 1:
-                 if sd.default.device[1] == device['index']:
-                    default_device_id = device['index']
-            elif isinstance(sd.default.device, int):
-                 if sd.default.device == device['index']:
-                    default_device_id = device['index']
-
-        device_id_to_use = None
-        selected_device_name = "None"
-
-        if syncroom_device_id is not None:
-            device_id_to_use = syncroom_device_id
-            selected_device_name = sd.query_devices(syncroom_device_id)['name']
-        elif shure_device_id is not None:
-            device_id_to_use = shure_device_id
-            selected_device_name = sd.query_devices(shure_device_id)['name']
-        elif realtek_device_id is not None:
-            device_id_to_use = realtek_device_id
-            selected_device_name = sd.query_devices(realtek_device_id)['name']
-        elif default_device_id is not None:
-            device_id_to_use = default_device_id
-            selected_device_name = sd.query_devices(default_device_id)['name']
-        else:
-            if output_devices:
-                device_id_to_use = output_devices[0]['index']
-                selected_device_name = output_devices[0]['name']
-                print(f"フォールバックデバイスを使用します: {selected_device_name}")
             else:
-                print("利用可能な出力オーディオデバイスが見つかりません。")
-                return 
-
-        print(f"オーディオデバイスを使用します: {selected_device_name} (ID: {device_id_to_use})")
-
-        if device_id_to_use is not None:
-            sd.play(audio_np, GCP_SAMPLE_RATE, device=device_id_to_use)
-            sd.wait()
-            print("再生が完了しました。")
-        else:
-            print("音声再生デバイスが特定できなかったため、再生をスキップします。")
-
+                print("無効な選択です。正しい番号を入力してください。")
+        except ValueError:
+            print("数字を入力してください。")
+    
+    # 選択されたファイルを読み込み
+    file_path = os.path.join(script_dir, selected_file)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            script_text = f.read()
+        
+        print(f"\nファイル '{selected_file}' を読み込みました。")
+        print(f"\n=== 読み上げ開始: {selected_file} ===\n")
+        
+        # テキストを段落ごとに分割
+        paragraphs = [p.strip() for p in script_text.split('\n\n') if p.strip()]
+        
+        # 各段落を読み上げ
+        for i, paragraph in enumerate(paragraphs):
+            if not paragraph.strip():
+                continue
+                
+            print(f"{character_name}: {paragraph}")
+            log_to_file(character_name, paragraph)
+            
+            # 音声合成と再生
+            tts_provider = get_tts_provider()
+            if tts_provider == "google_aistudio":
+                play_audio_google_aistudio(paragraph, language_code=TARGET_LANGUAGE_BCP47, output_device_index=AUDIO_OUTPUT_DEVICE_INDEX)
+            else:
+                play_audio_gcp(paragraph, language_code=TARGET_LANGUAGE_BCP47)
+            
+            # 段落間に少し間を空ける
+            if i < len(paragraphs) - 1:
+                time.sleep(1.5)
+        
+        print(f"\n=== 読み上げ終了: {selected_file} ===\n")
+        
     except Exception as e:
-        print(f"GCP TTS の再生中にエラーが発生しました: {e}")
+        print(f"ファイルの読み込みまたは処理中にエラーが発生しました: {e}")
         traceback.print_exc()
 
-generation_config = {
-    "temperature": 1,
-    "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 8192,
-    "response_mime_type": "text/plain",
-  }
-safety_settings = [
-    {
-        "category": "HARM_CATEGORY_HARASSMENT",
-        "threshold": "BLOCK_NONE"
-    },
-    {
-        "category": "HARM_CATEGORY_HATE_SPEECH",
-        "threshold": "BLOCK_NONE"
-    },
-    {
-        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        "threshold": "BLOCK_NONE"
-    },
-    {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_NONE"
-    }
-  ]
-
-
+# --- インタラクティブモード --- #
 def interactive_mode():
     """インタラクティブモードのメインループ"""
     global TARGET_LANGUAGE, TARGET_LANGUAGE_BCP47, full_persona, character_name, persona, greeting, guidelines
 
     chat_session = None
     try:
-        # 正しいインポート方法に修正
-        from google import genai
-        genai.configure(api_key=GEMINI_API_KEY)
-
-        # モデルとチャットセッションの初期化を1つにまとめる
+        # グローバルに初期化済みのgenaiを使用
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash-latest",
-            system_instruction=full_persona, # ★キャラクター設定をシステム命令として渡す
-            generation_config={
-                "temperature": 0.7,
-                "top_p": 0.95,
-                "top_k": 40,
-                "max_output_tokens": 1024,
-            },
-            safety_settings=[
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-            ]
+            'gemini-1.5-flash-latest',
+            system_instruction=full_persona
         )
-
-        chat_session = model.start_chat(
-            history=[
-                # 履歴の初期設定はシンプルに。システム命令でペルソナは設定済み。
-                # 必要であれば、最初の挨拶を履歴に追加することも可能。
-                # {
-                #     "role": "user",
-                #     "parts": ["こんにちは"], # 最初のユーザー発話のダミー
-                # },
-                # {
-                #     "role": "model",
-                #     "parts": [greeting],
-                # }
-            ]
-        )
-        print("対話用Geminiモデルをペルソナで正常に初期化しました。")
+        chat_session = model.start_chat()
+        print("情報: 対話用Geminiモデルを正常に初期化しました。")
 
     except Exception as e:
         print(f"エラー: 対話用Geminiモデルの初期化に失敗しました。 {e}")
         print("警告: AIとの対話機能は無効になります。")
-        # この後のループで chat_session が None であることをチェックする
 
-    # 挨拶は main() で既に実行されているため、ここでは不要
-    # print(f"{character_name}: {greeting}") # 重複するのでコメントアウト
+    # 特殊応答パターンの読み込み
+    response_patterns = load_response_patterns()
 
-    current_language = TARGET_LANGUAGE_BCP47  # 現在の言語を保持する変数
-
+    # 現在の言語設定
+    current_language = TARGET_LANGUAGE_BCP47
+    
     # メインループ
     while True:
         try:
-            user_input = input("あなた: ")
-            if user_input.lower() == 'exit':
-                print("終了します。")
+            # ユーザー入力を受け付ける
+            try:
+                user_input = input("あなた: ")
+            except EOFError:
+                print("入力が終了しました。プログラムを終了します。")
+                log_to_file("System", "入力終了によりプログラムを終了しました。")
                 break
-            elif user_input.lower() == 'log': # ログファイルの場所を表示
-                log_path_message = f"ログファイルの場所: {os.path.abspath(LOG_FILE_PATH)}"
-                print(log_path_message)
+            
+            if not user_input.strip():
                 continue
             
-            # 言語コマンドの処理
+            if user_input.lower() in ["exit", "quit", "終了", "退出"]:
+                print("プログラムを終了します。")
+                log_to_file("System", "終了コマンドによりプログラムを終了しました。")
+                break
+            
             language_match = re.match(LANGUAGE_COMMAND_PATTERN, user_input)
             if language_match:
-                lang_code = language_match.group(1)  # ja, en, es
-                message_text = language_match.group(2)  # コマンド後のメッセージ
-                
-                # 言語コードを完全な形式に変換
-                if lang_code in SUPPORTED_LANGUAGES_MAP:
-                    current_language = SUPPORTED_LANGUAGES_MAP[lang_code]
-                    print(f"言語を {current_language} に切り替えました")
-                    
-                    # 言語切り替えメッセージをログに記録
-                    log_to_file("System", f"言語を {current_language} に切り替えました")
-                    
-                    # メッセージがある場合は処理を続行、なければ次の入力へ
-                    if not message_text.strip():
-                        continue
-                        
-                    # 言語コマンドの後のメッセージを使用
-                    user_input = message_text
+                lang_code = language_match.group(1)
+                user_input = language_match.group(2)
+                current_language = SUPPORTED_LANGUAGES_MAP.get(lang_code, TARGET_LANGUAGE_BCP47)
+                print(f"言語を {lang_code} ({current_language}) に切り替えました。")
             
-            # ユーザー入力をログに記録
             log_to_file("User", user_input)
             
-            # 特殊応答パターンの処理
-            response_patterns = load_response_patterns()
             special_response = check_special_response(user_input, response_patterns)
-            
-            # 自己紹介リクエストかチェック
             is_intro_request = is_self_introduction_request(user_input)
             
             if special_response:
-                # 特殊応答パターンに一致した場合
                 response_text = special_response
             elif is_intro_request:
-                # 日本語の場合はテンプレートを使わず、Geminiで生成
-                if current_language == "ja-JP":
-                    # 通常の応答処理で自己紹介を生成
-                    response = chat_session.send_message(user_input)
-                    response_text = response.text
-                    print("日本語の自己紹介をGeminiで生成しました")
+                template = get_template("self_introduction", current_language)
+                if template:
+                    response_text = template
                 else:
-                    # 日本語以外の場合はテンプレートを使用
-                    template = get_template("self_introduction", current_language)
-                    if template:
-                        response_text = template
-                        print(f"自己紹介テンプレートを使用しました: {current_language}")
+                    if chat_session:
+                        response = chat_session.send_message(user_input)
+                        response_text = response.text
                     else:
-                        # テンプレートがない場合は通常の応答処理
-                        if not chat_session:
-                            response_text = "申し訳ありません、AIモデルが初期化されていないため、お答えできません。"
-                        else:
-                            response = chat_session.send_message(user_input)
-                            response_text = response.text
+                        response_text = "申し訳ありません、AIモデルが初期化されていないため、お答えできません。"
             else:
-                # 通常の応答処理
-                if not chat_session:
-                    response_text = "申し訳ありません、AIモデルが初期化されていないため、お答えできません。"
+                if chat_session:
+                    try:
+                        response = chat_session.send_message(user_input)
+                        response_text = response.text
+                    except Exception as e:
+                        response_text = f"申し訳ありません、応答の生成中にエラーが発生しました。 {e}"
+                        print(f"チャット応答生成中にエラーが発生しました: {e}")
                 else:
-                    ai_input = user_input
-                    if current_language == "en-US":
-                        ai_input = f"Respond in English.\nUser: {user_input}"
-                    elif current_language == "es-ES":
-                        ai_input = f"Respond in Spanish.\nUser: {user_input}"
-                    # 他の言語のサポートを追加する場合は、ここにelif節を追加します。
-
-                response = chat_session.send_message(ai_input)
-                response_text = response.text
+                    response_text = "申し訳ありません、AIモデルが初期化されていないため、お答えできません。"
             
-            # デフォルト言語（日本語）以外の場合は翻訳
-            if current_language != TARGET_LANGUAGE_BCP47:
-                print(f"[DEBUG] 翻訳開始: 元の言語={TARGET_LANGUAGE_BCP47}, ターゲット言語={current_language}")
-                print(f"[DEBUG] 翻訳前のテキスト: {response_text[:100]}...") # 長い場合は一部のみ表示
-                original_text = response_text
-                response_text = translate_text(original_text, current_language)
-                print(f"[DEBUG] 翻訳後のテキスト: {response_text[:100]}...") # 長い場合は一部のみ表示
-                
-                # 翻訳前と翻訳後の両方をログに記録
-                log_to_file(character_name, original_text, "原文")
-                log_to_file(character_name, response_text, current_language)
-            else:
-                # 翻訳なしの場合は通常通りログに記録
-                log_to_file(character_name, response_text, current_language)
+            log_to_file(character_name, response_text, current_language)
             
-            # コンソールに全文表示
             print(f"{character_name}: {response_text}")
             
-            # 音声合成と再生
-            # TTSプロバイダーに応じて適切な関数を呼び出す
             tts_provider = get_tts_provider()
             if tts_provider == "google_aistudio":
-                play_audio_google_aistudio(response_text, language_code=current_language)
-            else:
-                play_audio_gcp(response_text, language_code=current_language)
+                play_audio_google_aistudio(response_text, language_code=current_language, output_device_index=AUDIO_OUTPUT_DEVICE_INDEX)
             
         except Exception as e:
             error_message = f"エラーが発生しました: {e}"
             print(error_message)
             log_to_file("Error", error_message)
             traceback.print_exc()
+
+# --- メインループ --- #
+def main():
+    """メイン関数。コマンドライン引数を解析し、適切なモードを開始します。"""
+    global TARGET_LANGUAGE, TARGET_LANGUAGE_BCP47
+    
+    # コマンドライン引数の解析
+    args = parse_arguments()
+    
+    # 言語設定の更新
+    TARGET_LANGUAGE = args.language
+    TARGET_LANGUAGE_BCP47 = SUPPORTED_LANGUAGES_MAP.get(TARGET_LANGUAGE, "ja-JP")
+    
+    print(f"情報: 言語設定を {TARGET_LANGUAGE} ({TARGET_LANGUAGE_BCP47}) に設定しました。")
+    
+    # 挨拶を表示
+    print(f"{character_name}: {greeting}")
+    
+    # モード選択
+    mode = args.mode
+    if mode is None:
+        # 対話モードかどうかを確認
+        try:
+            # モードが指定されていない場合はユーザーに選択させる
+            print("モードを選択してください:")
+            print("1: インタラクティブモード - リアルタイムで対話")
+            print("2: 原稿読み上げモード - スクリプトファイルを読み上げ")
+            choice = input("> ")
+            if choice == "2":
+                mode = "script"
+            else:
+                mode = "interactive"
+        except EOFError:
+            # 非対話モードの場合はデフォルトでインタラクティブモードを選択
+            print("非対話モードで実行されています。デフォルトでインタラクティブモードを選択します。")
+            mode = "interactive"
+    
+    # 選択されたモードで実行
+    try:
+        if mode == "script":
+            print(f"情報: 原稿読み上げモードを開始します。")
+            script_mode(args.script_dir)
+        else:
+            print(f"情報: インタラクティブモードを開始します。")
+            interactive_mode()
+    except Exception as e:
+        print(f"エラー: モードの実行中に例外が発生しました: {e}")
+        import traceback
+        traceback.print_exc()
+
+# --- メイン処理 --- #
+if __name__ == "__main__":
+    try:
+        print("デバッグ: プログラム開始")
+        main()
+    except Exception as e:
+        print(f"エラー: プログラム実行中に例外が発生しました: {e}")
+        import traceback
+        traceback.print_exc()
+        # エラー後に一時停止して、ユーザーがエラーメッセージを確認できるようにする
+        input("エラーが発生しました。何かキーを押すと終了します...")
