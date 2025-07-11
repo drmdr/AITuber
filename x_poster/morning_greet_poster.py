@@ -4,7 +4,7 @@ import time
 import tweepy
 import gspread
 from google.oauth2.service_account import Credentials
-from google import genai
+import google.generativeai as genai
 from google.genai import types
 from PIL import Image
 from io import BytesIO
