@@ -6,6 +6,22 @@ import sys
 import io
 import os
 import argparse
+import json
+import re
+import time
+import queue
+import random
+import threading
+import traceback
+from time import sleep
+from pathlib import Path
+from datetime import datetime
+
+import numpy as np
+import sounddevice as sd
+import google.generativeai as genai
+from dotenv import load_dotenv
+
 
 # モジュール検索パスにカレントディレクトリを追加
 sys.path.append(os.getcwd())
@@ -24,8 +40,7 @@ def parse_arguments():
                         help='原稿ファイルが格納されているディレクトリパス')
     return parser.parse_args()
 
-import json
-from pathlib import Path
+
 
 # --- グローバル定数 --- #
 CONFIG_FILE_PATH = "config.local.json"  # ローカル設定ファイル
@@ -45,7 +60,6 @@ try:
     if GEMINI_API_KEY:
         print("Gemini APIキーを config.local.json から正常に読み込みました。")
         try:
-            import google.generativeai as genai
             genai.configure(api_key=GEMINI_API_KEY)
             print("Gemini APIクライアントを正常に初期化しました。")
         except Exception as e:
@@ -69,32 +83,6 @@ except json.JSONDecodeError:
     exit()
 
 # --- 標準ライブラリ・外部ライブラリのインポート --- #
-
-from google_aistudio_tts import GoogleAIStudioTTS  # Gemini API TTS (Google AI Studio TTS) クライアント
-# 翻訳ライブラリとして deep-translator を使用
-try:
-    from deep_translator import GoogleTranslator
-    # 翻訳クライアントの初期化は translate_text 関数内で行う
-    print("deep-translator library loaded successfully.")
-except ImportError:
-    print("deep-translatorライブラリがインストールされていません。翻訳機能は使用できません。")
-    print("pip install deep-translator を実行してインストールしてください。")
-
-import numpy as np  # 音声データ処理用 (現在は未使用の可能性あり)
-import traceback  # エラー発生時のスタックトレース表示用
-import sounddevice as sd  # 音声再生用
-import argparse  # コマンドライン引数の解析用
-# import pytchat  # YouTubeライブチャット読み上げ用 (現在はコメントアウト)
-import time  # 時間関連処理用
-from time import sleep  # 一定時間待機用
-import os  # OS依存機能（ファイルパス操作など）用
-import random  # 乱数生成用（応答の多様性などに利用可能性あり）
-from datetime import datetime  # 日時情報取得用（ログ記録など）
-import re  # 正規表現操作用（ユーザー入力の解析など）
-
-# YouTubeライブチャットID (現在はコメントアウト)
-# LIVE_VIDEO_ID = "9JXQ1XvHz-k"
-# livechat = pytchat.create(video_id=LIVE_VIDEO_ID)
 
 
 
@@ -361,21 +349,7 @@ def check_gcp_credentials():
     return True
 
 
-# --- Google AI Studio TTS (Gemini API TTS) クライアントの初期化 (メインTTSとして利用) ---
-google_aistudio_tts_client = None
-if GEMINI_API_KEY: # APIキーが設定されている場合のみ初期化を試みる
-    try:
-        google_aistudio_tts_client = GoogleAIStudioTTS(api_key=GEMINI_API_KEY)
-        print("Google AI Studio TTSクライアント (Gemini API TTS) を正常に初期化しました。(メインTTSとして利用)")
-    except Exception as e:
-        print(f"警告: Google AI Studio TTSクライアントの初期化に失敗しました。音声合成は利用できません。")
-        print(f"エラー詳細: {e}")
-        # traceback.print_exc() # 詳細なエラーが必要な場合にコメント解除
-else:
-    print("警告: Gemini APIキーが設定されていないため、Google AI Studio TTSクライアントは初期化されません。音声合成は利用できません。")
-#         # traceback.print_exc() # 詳細なエラーが必要な場合にコメント解除
-# else:
-#     print("警告: Gemini APIキーが設定されていないため、Google AI Studio TTSクライアントは初期化されません。音声合成は利用できません。")
+
 
 
 # googletransの初期化は上部で完了しているので、ここは空
@@ -469,57 +443,59 @@ def play_audio_google_aistudio(text, language_code="ja-JP", output_device_index=
     
     Args:
         text (str): 音声合成するテキスト
-        language_code (str): 言語コード。デフォルトは"ja-JP"
-        output_device_index (int, optional): 音声出力デバイスのインデックス。Noneの場合はデフォルトデバイスを使用。
+        language_code (str): 言語コード。現在は使用されていませんが、将来の拡張のために残されています。
+        output_device_index (int, optional): 音声出力デバイスのインデックス。Noneの場合はグローバル設定を使用。
     """
+    if not GEMINI_API_KEY:
+        print("警告: Gemini APIキーが設定されていないため、音声合成をスキップします。")
+        return
+
     try:
-        from google.generativeai import types
-        import os
-        import tempfile
+        print(f"Gemini TTSで音声を生成中... テキスト: 「{text[:30]}...」")
+        
+        # テスト済みの動作するモデル名を使用
+        tts_model = genai.GenerativeModel("models/gemini-2.5-flash-preview-tts")
 
-        if not GEMINI_API_KEY:
-            print("警告: Gemini APIキーが設定されていないため、音声合成をスキップします。")
-            return
+        # テスト済みのリクエスト形式を使用
+        generation_config = {
+            "response_modalities": ["AUDIO"],
+            "speech_config": {
+                "voice_config": {
+                    "prebuilt_voice_config": {
+                        "voice_name": "zephyr" # ボイスをzephyrに固定
+                    }
+                }
+            }
+        }
 
-        print("デバッグ: TTS音声合成を開始します...")
-
-        # TTSに最適化されたsynthesize_speechを使用し、エラー解決とパフォーマンス向上を図る
-        response = genai.synthesize_speech(
-            model='models/text-to-speech',
-            text=text,
-            voice_name='zephyr' # ボイスをzephyrに固定
+        audio_response = tts_model.generate_content(
+           text,
+           generation_config=generation_config
         )
 
-        # 音声データの取得
-        audio_data = response['audio_content']
+        # API応答からRAWオーディオデータを直接取得
+        audio_data_bytes = audio_response.candidates[0].content.parts[0].inline_data.data
 
-        # 一時ファイルに保存して再生
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
-            temp_filename = temp_file.name
-            temp_file.write(audio_data)
-        
-        print(f"音声ファイルを生成しました: {temp_filename}")
-        
-        # 音声再生
-        import sounddevice as sd
-        import soundfile as sf
-        
-        data, samplerate = sf.read(temp_filename)
-        
+        if not audio_data_bytes:
+            print("エラー: APIから音声データが返されませんでした。")
+            return
+
+        # RAW PCMデータをnumpy配列に変換し、再生
+        samplerate = 24000  # Gemini TTSの固定サンプルレート
+        audio_array = np.frombuffer(audio_data_bytes, dtype=np.int16)
+        audio_array_float32 = audio_array.astype(np.float32) / 32768.0
+
         device_to_use = output_device_index if output_device_index is not None else AUDIO_OUTPUT_DEVICE_INDEX
-        
+
         if device_to_use is not None:
             print(f"オーディオ出力デバイス {device_to_use} で再生します。")
-            sd.play(data, samplerate, device=device_to_use)
+            sd.play(audio_array_float32, samplerate, device=device_to_use)
         else:
             print("デフォルトのオーディオ出力デバイスで再生します。")
-            sd.play(data, samplerate)
+            sd.play(audio_array_float32, samplerate)
             
-        sd.wait()
+        sd.wait() # 再生完了まで待機
         print("音声の再生が完了しました。")
-        
-        # 一時ファイルの削除
-        os.remove(temp_filename)
 
     except Exception as e:
         print(f"Gemini API TTS の再生中にエラーが発生しました: {e}")
