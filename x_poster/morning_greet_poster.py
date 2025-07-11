@@ -106,59 +106,61 @@ def get_services_from_sheet(config):
         return []
 
 # --- AI Content Generation ---
-def generate_ai_comment(config, service_name, service_description, max_length_for_japanese_comment):
-    """Generates a bilingual (JA/EN) comment and categorizes the service using Gemini AI."""
+def generate_ai_comment(config, service_name, service_description):
+    """Generates a complete tweet post in bilingual format using Gemini AI."""
+    api_key = config.get('gemini_api_key')
+    if not api_key:
+        logging.error("Gemini API key not found in config.")
+        return {'ja_tweet': f'今日の注目サービスは「{service_name}」やで！', 'en_tweet': f'Todays featured service is "{service_name}"!'}
+
     try:
-        genai.configure(api_key=config['gemini_api_key'])
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
-        character_name = config.get('character_name', 'AI')
-        persona = config.get('persona', '')
-        is_nft_related = any(k in service_description.lower() for k in ["nft", "token", "collectible", "mint"])
-        question_prompt = "「持ってる人いる？」「ミントした？」" if is_nft_related else "「使ったことある？」「みんなはどう思う？」"
+        
+        character_name = config.get('character_name', 'モナミン')
+        persona = config.get('persona', 'あんたは親しみやすいアシスタント、モナミンや。常にエセ関西弁で、元気で面白い投稿をするんやで。')
+        greeting = config.get('greeting', 'Gmonamin!')
+        hashtags = "#Monad #AITuber #Monamin"
+
         prompt = f"""
-あなたは「{character_name}」という名前のVTuberです。
-以下のペルソナと指示に従って、与えられたサービスに関する分析とコメント作成を行ってください。
+        あなたは「{character_name}」という名前の、個性的で親しみやすいAI VTuberです。
+        ペルソナ: {persona}
 
-# ペルソナ
-{persona}
+        以下のWebサービスについて、あなたが発見した面白いサービスとして、日本のフォロワーに紹介する魅力的なツイートを作成してください。
 
-# 指示
-1.  **カテゴリ分類**: 与えられたサービスが以下のどれに最も当てはまるか判断してください。
-    - NFT (NFTコレクション、NFTマーケットプレイスなど)
-    - Webサービス (一般的なWebアプリケーション、ツールなど)
-    - DApp (分散型アプリケーション)
-    - その他 (上記に当てはまらないプロジェクトや技術など)
-2.  **コメント作成**: 
-    - サービス概要を単に要約するのではなく、あなた自身の言葉でそのサービスの魅力や面白い点を解説してください。
-    - 「これめっちゃ欲しいわ」「絶対使いたい！」のように、あなたの欲求や感情を表現してください。
-    - {question_prompt}  # ここで動的に質問文言を挿入
-    - あなたのペルソナ（関西弁など）を完全に維持してください。
-    - コメント本文に「Gmonamin」などの挨拶は含めないでください。
-    - 日本語のコメントは、必ず**{max_length_for_japanese_comment}文字以内**に収めてください。短く、キャッチーな内容を心がけてください。
-    - 英語のコメントも、同様に簡潔にしてください。
+        サービス名: {service_name}
+        概要: {service_description}
 
-# 対象サービス
-サービス名: {service_name}
-サービス概要: {service_description}
+        ツイート作成のルール:
+        - あなたのペルソナ（エセ関西弁）を完全に維持し、非常にクリエイティブで、毎回異なるユニークな文章を生成してください。
+        - 挨拶「{greeting}」から始めてください。
+        - サービス名と概要を元に、ユーザーが「面白そう！」「使ってみたい！」と感じるような、具体的で魅力的な紹介文を作成してください。
+        - 文章の最後に、必ずハッシュタグ「{hashtags}」を入れてください。
+        - 全体で140文字のTwitter制限を超えないように、簡潔にまとめてください。
+        - 英語のツイートは、日本語ツイートの魅力を伝えつつ、英語圏のユーザー向けに自然な表現で作成してください。挨拶やハッシュタグも英語に合わせて調整してください。
 
-# 出力形式
-必ず以下のJSON形式で回答してください。他のテキストは一切含めないでください。
-{{
-  "category": "ここにカテゴリを記述 (NFT, Webサービス, DApp, その他)",
-  "ja": "ここに日本語のコメントを記述",
-  "en": "ここに英語のコメントを記述"
-}}
-"""
+        出力は必ず以下のJSON形式で、他のテキストは含めないでください:
+        {{
+            "ja_tweet": "(生成した日本語のツイート全文)",
+            "en_tweet": "(生成した英語のツイート全文)"
+        }}
+        """
 
         response = model.generate_content(prompt)
-        cleaned_response = response.text.strip().removeprefix('```json').removesuffix('```')
-        ai_data = json.loads(cleaned_response)
-        if isinstance(ai_data, dict) and all(k in ai_data for k in ['category', 'ja', 'en']):
-            return ai_data
-        raise ValueError("AI response format error.")
+        
+        # Extract JSON from the response text
+        response_text = response.text
+        # Handle potential markdown code blocks for JSON
+        if '```json' in response_text:
+            json_str = response_text.split('```json')[1].split('```')[0].strip()
+        else:
+            json_str = response_text
+
+        return json.loads(json_str)
+
     except Exception as e:
         logging.error(f"Error generating AI comment: {e}")
-        return {"category": "サービス", "ja": "今日はこのサービスに注目やで！", "en": "Let's check out this service today!"}
+        return {'ja_tweet': f'今日の注目サービスは「{service_name}」やで！', 'en_tweet': f'Todays featured service is "{service_name}"!'}
 
 def generate_and_save_image(config, text_prompt, character_name, persona, service_name):
     """Generates an image using the Gemini API based on a detailed text prompt and saves it to a temporary file."""
@@ -381,15 +383,9 @@ def run_post_job():
     selected_service = random.choice(services)
     service_name, service_description = selected_service['name'], selected_service['description']
     
-    greeting_text = config.get('greeting', 'Gmonamin!')
-    hashtags_text = "#Monad #AITuber #Monamin"
-    max_len = 140 - (len(greeting_text) + len(f"今日の注目サービスは「{service_name}」やで！") + len(hashtags_text) + 6)
-    
-    ai_data = generate_ai_comment(config, service_name, service_description, max(10, max_len))
-    category, ai_comment_ja, ai_comment_en = ai_data.get('category', 'サービス'), ai_data.get('ja', "注目やで！"), ai_data.get('en', "Check it out!")
-
-    intro_text = f"今日の注目{category}は「{service_name}」やで！"
-    japanese_tweet_text = f"{greeting_text}\n\n{intro_text}\n\n{ai_comment_ja}\n\n{hashtags_text}"
+    ai_data = generate_ai_comment(config, service_name, service_description)
+    japanese_tweet_text = ai_data.get('ja_tweet', f'今日の注目サービスは「{service_name}」やで！ #Monad #AITuber #Monamin')
+    english_tweet_text = ai_data.get('en_tweet', f'Today\'s featured service is "{service_name}"! #Monad #AITuber #Monamin_EN')
 
     image_path = None
     image_generation_enabled = config.get('x_poster', {}).get('morning_greeting', {}).get('image_generation_enabled', False)
@@ -398,7 +394,7 @@ def run_post_job():
         if image_generation_enabled:
             image_path = generate_and_save_image(
                 config, 
-                f"{intro_text} {ai_comment_ja}", 
+                japanese_tweet_text, # Use the full generated tweet for the image prompt
                 config.get('character_name'), 
                 config.get('persona'),
                 service_name
@@ -412,9 +408,7 @@ def run_post_job():
         time.sleep(600)
 
         # English Tweet (with image, as a reply)
-        intro_en = f"Today's featured {category} is \"{service_name}\""
-        tweet_en = f"Gmonamin! {intro_en}!\n\n{ai_comment_en}\n\n#Monad #AITuber #Monamin_EN"
-        post_to_twitter(config, tweet_en, image_path=image_path)
+        post_to_twitter(config, english_tweet_text, image_path=image_path)
 
     finally:
         if image_path and os.path.exists(image_path):
