@@ -163,152 +163,62 @@ def generate_ai_comment(config, service_name, service_description):
         return {'ja_tweet': f'今日の注目サービスは「{service_name}」やで！', 'en_tweet': f'Todays featured service is "{service_name}"!'}
 
 def generate_and_save_image(config, text_prompt, character_name, persona, service_name):
-    """Generates an image using the Gemini API based on a detailed text prompt and saves it to a temporary file."""
+    """Generates an image using Vertex AI Image Generation API and saves it."""
     try:
-        logging.info("Initializing Gemini API for image generation...")
+        logging.info("Starting image generation with Vertex AI.")
+        gcp_project_id = config['x_poster']['google_sheets']['google_cloud_project_id']
         
-        # APIキーの取得と設定
-        api_key = config.get('gemini_api_key')
-        if not api_key:
-            logging.error("Missing Gemini API key in configuration")
-            return None
-            
-        # Gemini APIクライアントの初期化
-        client = genai.Client(api_key=api_key)
+        # Authenticate with Google Cloud to get access token
+        from google.auth import default
+        from google.auth.transport.requests import Request
+        creds, _ = default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
+        if not creds.valid:
+            if creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+        access_token = creds.token
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
-        logging.info(f"Using character description: {character_description[:50]}...")
-
-        # --- Prompt Generation for Gemini API ---
         style_and_quality = "A high-quality, vibrant, and clean anime style character illustration. masterpiece, best quality, ultra-detailed, 4K, HDR, beautiful detailed eyes, perfect face."
         subject_and_pose = f"Create an image of a cheerful and cute Japanese anime girl named {character_name}. {character_description}. She should be the main focus, smiling happily and engaging with the viewer."
-        
-        # サービス名に基づいたシーン設定
-        # NFT関連かどうかを判断
         is_nft_related = any(keyword in service_name.lower() for keyword in ['nft', 'token', 'crypto', 'blockchain', 'web3', 'dao'])
-        
-        if is_nft_related:
-            scene_context = f"The background should be related to NFT and blockchain technology with {service_name} theme. Include digital art elements, blockchain visualization, or crypto symbols."
-        else:
-            scene_context = f"The background should be related to the featured app: '{service_name}'. Include tech elements, app interface designs, or digital environment."
-
-        # Randomly apply Chibi style
-        if random.random() < 0.3: # 30% chance
+        scene_context = f"The background should be related to NFT and blockchain technology with {service_name} theme." if is_nft_related else f"The background should be related to the featured app: '{service_name}'."
+        if random.random() < 0.3:
             style_and_quality = "chibi style, super deformed, cute, " + style_and_quality
 
-        # Gemini's image generation prompt
-        full_prompt = (
-            f"{style_and_quality} {subject_and_pose} {scene_context} "
-            f"Please avoid the following: low quality, worst quality, jpeg artifacts, blurry, noisy, text, watermark, signature, "
-            f"ugly, deformed, disfigured, malformed, bad anatomy, extra limbs, missing limbs, "
-            f"extra fingers, mutated hands, poorly drawn hands, poorly drawn face, dirty face, messy, distorted."
-        )
+        full_prompt = f"{style_and_quality} {subject_and_pose} {scene_context}"
 
-        logging.info(f"Generating image with Gemini prompt: {full_prompt[:100]}...")
+        logging.info(f"Generating image with prompt: {full_prompt[:100]}...")
 
-        # 画像生成リクエスト
-        try:
-            # APIリクエスト実行
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-preview-image-generation",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=['TEXT', 'IMAGE'],
-                    temperature=0.4,
-                    top_p=1,
-                    top_k=32,
-                    candidate_count=1
-                )
-            )
-            
-            # デバッグ情報を追加
-            logging.info(f"Response received. Type: {type(response)}")
-            
-            # 画像データ変数の初期化
-            image_data = None
-            
-            # 新しいAPIレスポンス形式からの画像データ抽出
-            if hasattr(response, 'candidates') and response.candidates:
-                logging.info(f"Found {len(response.candidates)} candidates")
-                
-                for candidate_idx, candidate in enumerate(response.candidates):
-                    if hasattr(candidate, 'content') and candidate.content:
-                        logging.info(f"Processing candidate {candidate_idx}")
-                        
-                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
-                            parts = candidate.content.parts
-                            logging.info(f"Found {len(parts)} parts")
-                            
-                            for part_idx, part in enumerate(parts):
-                                # テキスト応答のログ出力
-                                if hasattr(part, 'text') and part.text:
-                                    logging.info(f"Text in part {part_idx}: {part.text[:50]}...")
-                                
-                                # 画像データの抽出 (inline_data)
-                                if hasattr(part, 'inline_data') and part.inline_data:
-                                    image_data = part.inline_data.data
-                                    logging.info(f"Found image data in part {part_idx}")
-                                    break
-            
-            # 画像データが見つからない場合
-            if not image_data:
-                logging.error("No image data found in any of the expected response formats")
-                if hasattr(response, '__dict__'):
-                    logging.info(f"Response structure: {str(response.__dict__)[:500]}...")
-                return None
-                
-        except Exception as api_error:
-            logging.error(f"Error with Gemini API call: {api_error}")
-            import traceback
-            logging.error(f"Stack trace: {traceback.format_exc()}")
+        endpoint = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{gcp_project_id}/locations/us-central1/publishers/google/models/imagegeneration:predict"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=utf-8"
+        }
+        data = {
+            "instances": [
+                {"prompt": full_prompt}
+            ],
+            "parameters": {
+                "sampleCount": 1
+            }
+        }
+
+        response = requests.post(endpoint, headers=headers, json=data)
+        response.raise_for_status() # Raise an exception for bad status codes
+
+        response_json = response.json()
+        if not response_json.get('predictions'):
+            logging.error(f"Image generation failed. API response: {response_json}")
             return None
 
-        # 画像データの検証
-        if not image_data:
-            logging.error("Image data is None after extraction attempts")
-            return None
+        image_data_base64 = response_json['predictions'][0]['bytesBase64Encoded']
+        image_data = base64.b64decode(image_data_base64)
 
-        # 画像データを処理して保存
-        try:
-            # バイナリデータの検証
-            if not isinstance(image_data, bytes):
-                logging.error(f"Image data is not bytes type: {type(image_data)}")
-                return None
-                
-            if len(image_data) < 100:  # 極端に小さいデータは画像でない可能性が高い
-                logging.error(f"Image data too small ({len(image_data)} bytes), likely not valid")
-                return None
-                
-            # 画像として開いてみる
-            from PIL import Image
-            from io import BytesIO
-            
-            image = Image.open(BytesIO(image_data))
-            
-            # 保存先パスの生成
-            image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
-            
-            # 画像の保存
-            image.save(image_path)
-            logging.info(f"Image successfully saved to {image_path}")
-            
-            # パスを返す
-            return image_path
-            
-        except Exception as img_error:
-            logging.error(f"Error processing image data: {img_error}")
-            import traceback
-            logging.error(f"Image processing stack trace: {traceback.format_exc()}")
-            
-            # 画像データの情報をログ出力
-            if image_data:
-                try:
-                    logging.info(f"Image data type: {type(image_data)}, length: {len(image_data)}")
-                    if len(image_data) < 1000:
-                        logging.info(f"Image data content: {str(image_data)[:100]}...")
-                except:
-                    pass
-            return None
+        image = Image.open(BytesIO(image_data))
+        image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
+        image.save(image_path)
+        logging.info(f"Image successfully saved to {image_path}")
+        return image_path
 
     except Exception as e:
         logging.error(f"An error occurred during image generation with Gemini: {e}")
