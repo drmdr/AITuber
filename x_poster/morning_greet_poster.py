@@ -4,7 +4,7 @@ import time
 import tweepy
 import gspread
 from google.oauth2.service_account import Credentials
-import google.generativeai as genai
+from google import genai
 from google.genai import types
 from PIL import Image
 from io import BytesIO
@@ -106,119 +106,207 @@ def get_services_from_sheet(config):
         return []
 
 # --- AI Content Generation ---
-def generate_ai_comment(config, service_name, service_description):
-    """Generates a complete tweet post in bilingual format using Gemini AI."""
-    api_key = config.get('gemini_api_key')
-    if not api_key:
-        logging.error("Gemini API key not found in config.")
-        return {'ja_tweet': f'今日の注目サービスは「{service_name}」やで！', 'en_tweet': f'Todays featured service is "{service_name}"!'}
-
+def generate_ai_comment(config, service_name, service_description, max_length_for_japanese_comment):
+    """Generates a bilingual (JA/EN) comment and categorizes the service using Gemini AI."""
     try:
-        genai.configure(api_key=api_key)
+        genai.configure(api_key=config['gemini_api_key'])
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
-        
-        character_name = config.get('character_name', 'モナミン')
-        persona = config.get('persona', 'あんたは親しみやすいアシスタント、モナミンや。常にエセ関西弁で、元気で面白い投稿をするんやで。')
-        greeting = config.get('greeting', 'Gmonamin!')
-        hashtags = "#Monad #AITuber #Monamin"
-
+        character_name = config.get('character_name', 'AI')
+        persona = config.get('persona', '')
+        is_nft_related = any(k in service_description.lower() for k in ["nft", "token", "collectible", "mint"])
+        question_prompt = "「持ってる人いる？」「ミントした？」" if is_nft_related else "「使ったことある？」「みんなはどう思う？」"
         prompt = f"""
-        あなたは「{character_name}」という名前の、個性的で親しみやすいAI VTuberです。
-        ペルソナ: {persona}
+あなたは「{character_name}」という名前のVTuberです。
+以下のペルソナと指示に従って、与えられたサービスに関する分析とコメント作成を行ってください。
 
-        以下のWebサービスについて、あなたが発見した面白いサービスとして、日本のフォロワーに紹介する魅力的なツイートを作成してください。
+# ペルソナ
+{persona}
 
-        サービス名: {service_name}
-        概要: {service_description}
+# 指示
+1.  **カテゴリ分類**: 与えられたサービスが以下のどれに最も当てはまるか判断してください。
+    - NFT (NFTコレクション、NFTマーケットプレイスなど)
+    - Webサービス (一般的なWebアプリケーション、ツールなど)
+    - DApp (分散型アプリケーション)
+    - その他 (上記に当てはまらないプロジェクトや技術など)
+2.  **コメント作成**: 
+    - サービス概要を単に要約するのではなく、あなた自身の言葉でそのサービスの魅力や面白い点を解説してください。
+    - 「これめっちゃ欲しいわ」「絶対使いたい！」のように、あなたの欲求や感情を表現してください。
+    - {question_prompt}  # ここで動的に質問文言を挿入
+    - あなたのペルソナ（関西弁など）を完全に維持してください。
+    - コメント本文に「Gmonamin」などの挨拶は含めないでください。
+    - 日本語のコメントは、必ず**{max_length_for_japanese_comment}文字以内**に収めてください。短く、キャッチーな内容を心がけてください。
+    - 英語のコメントも、同様に簡潔にしてください。
 
-        ツイート作成のルール:
-        - あなたのペルソナ（エセ関西弁）を完全に維持し、非常にクリエイティブで、毎回異なるユニークな文章を生成してください。
-        - 挨拶「{greeting}」から始めてください。
-        - サービス名と概要を元に、ユーザーが「面白そう！」「使ってみたい！」と感じるような、具体的で魅力的な紹介文を作成してください。
-        - 文章の最後に、必ずハッシュタグ「{hashtags}」を入れてください。
-        - 全体で140文字のTwitter制限を超えないように、簡潔にまとめてください。
-        - 英語のツイートは、日本語ツイートの魅力を伝えつつ、英語圏のユーザー向けに自然な表現で作成してください。挨拶やハッシュタグも英語に合わせて調整してください。
+# 対象サービス
+サービス名: {service_name}
+サービス概要: {service_description}
 
-        出力は必ず以下のJSON形式で、他のテキストは含めないでください:
-        {{
-            "ja_tweet": "(生成した日本語のツイート全文)",
-            "en_tweet": "(生成した英語のツイート全文)"
-        }}
-        """
+# 出力形式
+必ず以下のJSON形式で回答してください。他のテキストは一切含めないでください。
+{{
+  "category": "ここにカテゴリを記述 (NFT, Webサービス, DApp, その他)",
+  "ja": "ここに日本語のコメントを記述",
+  "en": "ここに英語のコメントを記述"
+}}
+"""
 
         response = model.generate_content(prompt)
-        
-        # Extract JSON from the response text
-        response_text = response.text
-        # Handle potential markdown code blocks for JSON
-        if '```json' in response_text:
-            json_str = response_text.split('```json')[1].split('```')[0].strip()
-        else:
-            json_str = response_text
-
-        return json.loads(json_str)
-
+        cleaned_response = response.text.strip().removeprefix('```json').removesuffix('```')
+        ai_data = json.loads(cleaned_response)
+        if isinstance(ai_data, dict) and all(k in ai_data for k in ['category', 'ja', 'en']):
+            return ai_data
+        raise ValueError("AI response format error.")
     except Exception as e:
         logging.error(f"Error generating AI comment: {e}")
-        return {'ja_tweet': f'今日の注目サービスは「{service_name}」やで！', 'en_tweet': f'Todays featured service is "{service_name}"!'}
+        return {"category": "サービス", "ja": "今日はこのサービスに注目やで！", "en": "Let's check out this service today!"}
 
 def generate_and_save_image(config, text_prompt, character_name, persona, service_name):
-    """Generates an image using Vertex AI Image Generation API and saves it."""
+    """Generates an image using the Gemini API based on a detailed text prompt and saves it to a temporary file."""
     try:
-        logging.info("Starting image generation with Vertex AI.")
-        gcp_project_id = config['x_poster']['google_sheets']['google_cloud_project_id']
+        logging.info("Initializing Gemini API for image generation...")
         
-        # Authenticate with Google Cloud to get access token
-        from google.auth import default
-        from google.auth.transport.requests import Request
-        creds, _ = default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
-        if not creds.valid:
-            if creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-        access_token = creds.token
+        # APIキーの取得と設定
+        api_key = config.get('gemini_api_key')
+        if not api_key:
+            logging.error("Missing Gemini API key in configuration")
+            return None
+            
+        # Gemini APIクライアントの初期化
+        client = genai.Client(api_key=api_key)
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
+        logging.info(f"Using character description: {character_description[:50]}...")
+
+        # --- Prompt Generation for Gemini API ---
         style_and_quality = "A high-quality, vibrant, and clean anime style character illustration. masterpiece, best quality, ultra-detailed, 4K, HDR, beautiful detailed eyes, perfect face."
         subject_and_pose = f"Create an image of a cheerful and cute Japanese anime girl named {character_name}. {character_description}. She should be the main focus, smiling happily and engaging with the viewer."
+        
+        # サービス名に基づいたシーン設定
+        # NFT関連かどうかを判断
         is_nft_related = any(keyword in service_name.lower() for keyword in ['nft', 'token', 'crypto', 'blockchain', 'web3', 'dao'])
-        scene_context = f"The background should be related to NFT and blockchain technology with {service_name} theme." if is_nft_related else f"The background should be related to the featured app: '{service_name}'."
-        if random.random() < 0.3:
+        
+        if is_nft_related:
+            scene_context = f"The background should be related to NFT and blockchain technology with {service_name} theme. Include digital art elements, blockchain visualization, or crypto symbols."
+        else:
+            scene_context = f"The background should be related to the featured app: '{service_name}'. Include tech elements, app interface designs, or digital environment."
+
+        # Randomly apply Chibi style
+        if random.random() < 0.3: # 30% chance
             style_and_quality = "chibi style, super deformed, cute, " + style_and_quality
 
-        full_prompt = f"{style_and_quality} {subject_and_pose} {scene_context}"
+        # Gemini's image generation prompt
+        full_prompt = (
+            f"{style_and_quality} {subject_and_pose} {scene_context} "
+            f"Please avoid the following: low quality, worst quality, jpeg artifacts, blurry, noisy, text, watermark, signature, "
+            f"ugly, deformed, disfigured, malformed, bad anatomy, extra limbs, missing limbs, "
+            f"extra fingers, mutated hands, poorly drawn hands, poorly drawn face, dirty face, messy, distorted."
+        )
 
-        logging.info(f"Generating image with prompt: {full_prompt[:100]}...")
+        logging.info(f"Generating image with Gemini prompt: {full_prompt[:100]}...")
 
-        endpoint = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{gcp_project_id}/locations/us-central1/publishers/google/models/imagegeneration:predict"
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json; charset=utf-8"
-        }
-        data = {
-            "instances": [
-                {"prompt": full_prompt}
-            ],
-            "parameters": {
-                "sampleCount": 1
-            }
-        }
-
-        response = requests.post(endpoint, headers=headers, json=data)
-        response.raise_for_status() # Raise an exception for bad status codes
-
-        response_json = response.json()
-        if not response_json.get('predictions'):
-            logging.error(f"Image generation failed. API response: {response_json}")
+        # 画像生成リクエスト
+        try:
+            # APIリクエスト実行
+            response = client.models.generate_content(
+                model="gemini-2.0-flash-preview-image-generation",
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=['TEXT', 'IMAGE'],
+                    temperature=0.4,
+                    top_p=1,
+                    top_k=32,
+                    candidate_count=1
+                )
+            )
+            
+            # デバッグ情報を追加
+            logging.info(f"Response received. Type: {type(response)}")
+            
+            # 画像データ変数の初期化
+            image_data = None
+            
+            # 新しいAPIレスポンス形式からの画像データ抽出
+            if hasattr(response, 'candidates') and response.candidates:
+                logging.info(f"Found {len(response.candidates)} candidates")
+                
+                for candidate_idx, candidate in enumerate(response.candidates):
+                    if hasattr(candidate, 'content') and candidate.content:
+                        logging.info(f"Processing candidate {candidate_idx}")
+                        
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            parts = candidate.content.parts
+                            logging.info(f"Found {len(parts)} parts")
+                            
+                            for part_idx, part in enumerate(parts):
+                                # テキスト応答のログ出力
+                                if hasattr(part, 'text') and part.text:
+                                    logging.info(f"Text in part {part_idx}: {part.text[:50]}...")
+                                
+                                # 画像データの抽出 (inline_data)
+                                if hasattr(part, 'inline_data') and part.inline_data:
+                                    image_data = part.inline_data.data
+                                    logging.info(f"Found image data in part {part_idx}")
+                                    break
+            
+            # 画像データが見つからない場合
+            if not image_data:
+                logging.error("No image data found in any of the expected response formats")
+                if hasattr(response, '__dict__'):
+                    logging.info(f"Response structure: {str(response.__dict__)[:500]}...")
+                return None
+                
+        except Exception as api_error:
+            logging.error(f"Error with Gemini API call: {api_error}")
+            import traceback
+            logging.error(f"Stack trace: {traceback.format_exc()}")
             return None
 
-        image_data_base64 = response_json['predictions'][0]['bytesBase64Encoded']
-        image_data = base64.b64decode(image_data_base64)
+        # 画像データの検証
+        if not image_data:
+            logging.error("Image data is None after extraction attempts")
+            return None
 
-        image = Image.open(BytesIO(image_data))
-        image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
-        image.save(image_path)
-        logging.info(f"Image successfully saved to {image_path}")
-        return image_path
+        # 画像データを処理して保存
+        try:
+            # バイナリデータの検証
+            if not isinstance(image_data, bytes):
+                logging.error(f"Image data is not bytes type: {type(image_data)}")
+                return None
+                
+            if len(image_data) < 100:  # 極端に小さいデータは画像でない可能性が高い
+                logging.error(f"Image data too small ({len(image_data)} bytes), likely not valid")
+                return None
+                
+            # 画像として開いてみる
+            from PIL import Image
+            from io import BytesIO
+            
+            image = Image.open(BytesIO(image_data))
+            
+            # 保存先パスの生成
+            image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
+            
+            # 画像の保存
+            image.save(image_path)
+            logging.info(f"Image successfully saved to {image_path}")
+            
+            # パスを返す
+            return image_path
+            
+        except Exception as img_error:
+            logging.error(f"Error processing image data: {img_error}")
+            import traceback
+            logging.error(f"Image processing stack trace: {traceback.format_exc()}")
+            
+            # 画像データの情報をログ出力
+            if image_data:
+                try:
+                    logging.info(f"Image data type: {type(image_data)}, length: {len(image_data)}")
+                    if len(image_data) < 1000:
+                        logging.info(f"Image data content: {str(image_data)[:100]}...")
+                except:
+                    pass
+            return None
 
     except Exception as e:
         logging.error(f"An error occurred during image generation with Gemini: {e}")
@@ -293,9 +381,15 @@ def run_post_job():
     selected_service = random.choice(services)
     service_name, service_description = selected_service['name'], selected_service['description']
     
-    ai_data = generate_ai_comment(config, service_name, service_description)
-    japanese_tweet_text = ai_data.get('ja_tweet', f'今日の注目サービスは「{service_name}」やで！ #Monad #AITuber #Monamin')
-    english_tweet_text = ai_data.get('en_tweet', f'Today\'s featured service is "{service_name}"! #Monad #AITuber #Monamin_EN')
+    greeting_text = config.get('greeting', 'Gmonamin!')
+    hashtags_text = "#Monad #AITuber #Monamin"
+    max_len = 140 - (len(greeting_text) + len(f"今日の注目サービスは「{service_name}」やで！") + len(hashtags_text) + 6)
+    
+    ai_data = generate_ai_comment(config, service_name, service_description, max(10, max_len))
+    category, ai_comment_ja, ai_comment_en = ai_data.get('category', 'サービス'), ai_data.get('ja', "注目やで！"), ai_data.get('en', "Check it out!")
+
+    intro_text = f"今日の注目{category}は「{service_name}」やで！"
+    japanese_tweet_text = f"{greeting_text}\n\n{intro_text}\n\n{ai_comment_ja}\n\n{hashtags_text}"
 
     image_path = None
     image_generation_enabled = config.get('x_poster', {}).get('morning_greeting', {}).get('image_generation_enabled', False)
@@ -304,7 +398,7 @@ def run_post_job():
         if image_generation_enabled:
             image_path = generate_and_save_image(
                 config, 
-                japanese_tweet_text, # Use the full generated tweet for the image prompt
+                f"{intro_text} {ai_comment_ja}", 
                 config.get('character_name'), 
                 config.get('persona'),
                 service_name
@@ -318,7 +412,9 @@ def run_post_job():
         time.sleep(600)
 
         # English Tweet (with image, as a reply)
-        post_to_twitter(config, english_tweet_text, image_path=image_path)
+        intro_en = f"Today's featured {category} is \"{service_name}\""
+        tweet_en = f"Gmonamin! {intro_en}!\n\n{ai_comment_en}\n\n#Monad #AITuber #Monamin_EN"
+        post_to_twitter(config, tweet_en, image_path=image_path)
 
     finally:
         if image_path and os.path.exists(image_path):
