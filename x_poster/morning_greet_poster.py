@@ -168,8 +168,7 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
         response = model.generate_content(
             [image_generation_prompt],
             generation_config=genai.types.GenerationConfig(
-                candidate_count=1,
-                response_mime_type="image/png", # 画像のMIMEタイプを明示的に要求
+                candidate_count=1
             )
         )
 
