@@ -5,6 +5,8 @@ import tweepy
 import gspread
 from google.oauth2.service_account import Credentials
 import google.generativeai as genai
+from google import genai as genai_client
+from google.genai import types
 import traceback
 from PIL import Image
 from io import BytesIO
@@ -150,7 +152,8 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
             raise ValueError("Gemini API key not found in configuration.")
         
         genai.configure(api_key=api_key)
-
+        
+        # 画像生成のためのプロンプト作成
         image_generation_prompt = (
             f"{persona}\n\n" 
             f"あなたは「{character_name}」です。以下のツイート内容を元に、文脈に合った画像を生成してください。"
@@ -162,36 +165,94 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
 
         logging.info(f"Generating image with prompt: {image_generation_prompt[:200]}...")
         
-        # 画像生成モデルを正しく指定
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        # プロンプトを渡して画像を生成
-        response = model.generate_content(
-            [image_generation_prompt],
-            generation_config=genai.types.GenerationConfig(
-                candidate_count=1
-            )
-        )
+        # Gemini APIを使用して画像生成
+        try:
+            # Vertex AIのエンドポイントを使用
+            project_id = config.get('x_poster', {}).get('google_sheets', {}).get('google_cloud_project_id')
+            if not project_id:
+                raise ValueError("Google Cloud Project ID not found in configuration")
+                
+            # Gemini Pro Visionモデルを使用して画像生成
+            model = genai.GenerativeModel('gemini-pro-vision')
+            response = model.generate_content(image_generation_prompt)
+            
+            # 応答から画像データを抽出
+            image_data = None
+            
+            # 応答形式に応じた画像データの抽出
+            if hasattr(response, 'candidates') and response.candidates:
+                for candidate_idx, candidate in enumerate(response.candidates):
+                    if hasattr(candidate, 'content') and candidate.content:
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            for part_idx, part in enumerate(candidate.content.parts):
+                                if hasattr(part, 'inline_data') and part.inline_data:
+                                    image_data = part.inline_data.data
+                                    logging.info(f"Found image data in part {part_idx}")
+                                    break
+            
+            # 画像データが見つからない場合
+            if not image_data:
+                logging.error("No image data found in any of the expected response formats")
+                if hasattr(response, '__dict__'):
+                    logging.info(f"Response structure: {str(response.__dict__)[:500]}...")
+                return None
+                
+        except Exception as api_error:
+            logging.error(f"Error with Gemini API call: {api_error}")
+            import traceback
+            logging.error(f"Stack trace: {traceback.format_exc()}")
+            return None
 
-        if not response.parts:
-             raise ConnectionError("Image generation failed or returned no image parts.")
+        # 画像データの検証
+        if not image_data:
+            logging.error("Image data is None after extraction attempts")
+            return None
 
-        # 応答から画像データを抽出
-        image_part = response.parts[0]
-        if not image_part.inline_data or not image_part.inline_data.mime_type.startswith('image/'):
-            if response.text:
-                logging.warning(f"Image generation model returned text instead of an image: {response.text}")
-            raise ConnectionError("No image data found in the response.")
-
-        image_bytes = image_part.inline_data.data
-        image = Image.open(BytesIO(image_bytes))
-        
-        temp_image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_generated_image.png")
-        image.save(temp_image_path)
-        logging.info(f"Image saved temporarily to {temp_image_path}")
-        return temp_image_path
+        # 画像データを処理して保存
+        try:
+            # バイナリデータの検証
+            if not isinstance(image_data, bytes):
+                logging.error(f"Image data is not bytes type: {type(image_data)}")
+                return None
+                
+            if len(image_data) < 100:  # 極端に小さいデータは画像でない可能性が高い
+                logging.error(f"Image data too small ({len(image_data)} bytes), likely not valid")
+                return None
+                
+            # 画像として開いてみる
+            from PIL import Image
+            from io import BytesIO
+            
+            image = Image.open(BytesIO(image_data))
+            
+            # 保存先パスの生成
+            image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
+            
+            # 画像の保存
+            image.save(image_path)
+            logging.info(f"Image successfully saved to {image_path}")
+            
+            # パスを返す
+            return image_path
+            
+        except Exception as img_error:
+            logging.error(f"Error processing image data: {img_error}")
+            import traceback
+            logging.error(f"Image processing stack trace: {traceback.format_exc()}")
+            
+            # 画像データの情報をログ出力
+            if image_data:
+                try:
+                    logging.info(f"Image data type: {type(image_data)}, length: {len(image_data)}")
+                    if len(image_data) < 1000:
+                        logging.info(f"Image data content: {str(image_data)[:100]}...")
+                except:
+                    pass
+            return None
 
     except Exception as e:
         logging.error(f"An error occurred during image generation with Gemini: {e}")
+        import traceback
         logging.error(f"Stack trace: {traceback.format_exc()}")
         return None
 
