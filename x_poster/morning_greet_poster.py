@@ -110,7 +110,7 @@ def generate_ai_comment(config, service_name, service_description):
     """Generates a tweet using Gemini AI based on service info."""
     try:
         genai.configure(api_key=config['gemini_api_key'])
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
         character_name = config.get('character_name', 'ウチ')
         persona = config.get('persona', 'フレンドリーなキャラクター')
@@ -145,154 +145,54 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
     """Generates an image using the Gemini API based on a detailed text prompt and saves it to a temporary file."""
     try:
         logging.info("Initializing Gemini API for image generation...")
-        
-        # APIキーの取得と設定
         api_key = config.get('gemini_api_key')
         if not api_key:
-            logging.error("Missing Gemini API key in configuration")
-            return None
-            
-        # Gemini APIクライアントの初期化
+            raise ValueError("Gemini API key not found in configuration.")
+        
         genai.configure(api_key=api_key)
-        client = genai.Client(api_key=api_key)
 
-        character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
-        logging.info(f"Using character description: {character_description[:50]}...")
-
-        # --- Prompt Generation for Gemini API ---
-        style_and_quality = "A high-quality, vibrant, and clean anime style character illustration. masterpiece, best quality, ultra-detailed, 4K, HDR, beautiful detailed eyes, perfect face."
-        subject_and_pose = f"Create an image of a cheerful and cute Japanese anime girl named {character_name}. {character_description}. She should be the main focus, smiling happily and engaging with the viewer."
-        
-        # サービス名に基づいたシーン設定
-        # NFT関連かどうかを判断
-        is_nft_related = any(keyword in service_name.lower() for keyword in ['nft', 'token', 'crypto', 'blockchain', 'web3', 'dao'])
-        
-        if is_nft_related:
-            scene_context = f"The background should be related to NFT and blockchain technology with {service_name} theme. Include digital art elements, blockchain visualization, or crypto symbols."
-        else:
-            scene_context = f"The background should be related to the featured app: '{service_name}'. Include tech elements, app interface designs, or digital environment."
-
-        # Randomly apply Chibi style
-        if random.random() < 0.3: # 30% chance
-            style_and_quality = "chibi style, super deformed, cute, " + style_and_quality
-
-        # Gemini's image generation prompt
-        full_prompt = (
-            f"{style_and_quality} {subject_and_pose} {scene_context} "
-            f"Please avoid the following: low quality, worst quality, jpeg artifacts, blurry, noisy, text, watermark, signature, "
-            f"ugly, deformed, disfigured, malformed, bad anatomy, extra limbs, missing limbs, "
-            f"extra fingers, mutated hands, poorly drawn hands, poorly drawn face, dirty face, messy, distorted."
+        image_generation_prompt = (
+            f"{persona}\n\n" 
+            f"あなたは「{character_name}」です。以下のツイート内容を元に、文脈に合った画像を生成してください。"
+            f"画像は日本の萌えアニメ風のスタイルで、一人の女の子を描いてください。" 
+            f"画像に文字は含めないでください。\n\n" 
+            f"ツイート内容: {text_prompt}\n"
+            f"紹介しているサービス: {service_name}"
         )
 
-        logging.info(f"Generating image with Gemini prompt: {full_prompt[:100]}...")
-
-        # 画像生成リクエスト
-        try:
-            # APIリクエスト実行
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-preview-image-generation",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=['TEXT', 'IMAGE'],
-                    temperature=0.4,
-                    top_p=1,
-                    top_k=32,
-                    candidate_count=1
-                )
+        logging.info(f"Generating image with prompt: {image_generation_prompt[:200]}...")
+        
+        # 画像生成モデルを正しく指定
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        # プロンプトを渡して画像を生成
+        response = model.generate_content(
+            [image_generation_prompt],
+            generation_config=genai.types.GenerationConfig(
+                candidate_count=1,
+                response_mime_type="image/png", # 画像のMIMEタイプを明示的に要求
             )
-            
-            # デバッグ情報を追加
-            logging.info(f"Response received. Type: {type(response)}")
-            
-            # 画像データ変数の初期化
-            image_data = None
-            
-            # 新しいAPIレスポンス形式からの画像データ抽出
-            if hasattr(response, 'candidates') and response.candidates:
-                logging.info(f"Found {len(response.candidates)} candidates")
-                
-                for candidate_idx, candidate in enumerate(response.candidates):
-                    if hasattr(candidate, 'content') and candidate.content:
-                        logging.info(f"Processing candidate {candidate_idx}")
-                        
-                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
-                            parts = candidate.content.parts
-                            logging.info(f"Found {len(parts)} parts")
-                            
-                            for part_idx, part in enumerate(parts):
-                                # テキスト応答のログ出力
-                                if hasattr(part, 'text') and part.text:
-                                    logging.info(f"Text in part {part_idx}: {part.text[:50]}...")
-                                
-                                # 画像データの抽出 (inline_data)
-                                if hasattr(part, 'inline_data') and part.inline_data:
-                                    image_data = part.inline_data.data
-                                    logging.info(f"Found image data in part {part_idx}")
-                                    break
-            
-            # 画像データが見つからない場合
-            if not image_data:
-                logging.error("No image data found in any of the expected response formats")
-                if hasattr(response, '__dict__'):
-                    logging.info(f"Response structure: {str(response.__dict__)[:500]}...")
-                return None
-                
-        except Exception as api_error:
-            logging.error(f"Error with Gemini API call: {api_error}")
-            import traceback
-            logging.error(f"Stack trace: {traceback.format_exc()}")
-            return None
+        )
 
-        # 画像データの検証
-        if not image_data:
-            logging.error("Image data is None after extraction attempts")
-            return None
+        if not response.parts:
+             raise ConnectionError("Image generation failed or returned no image parts.")
 
-        # 画像データを処理して保存
-        try:
-            # バイナリデータの検証
-            if not isinstance(image_data, bytes):
-                logging.error(f"Image data is not bytes type: {type(image_data)}")
-                return None
-                
-            if len(image_data) < 100:  # 極端に小さいデータは画像でない可能性が高い
-                logging.error(f"Image data too small ({len(image_data)} bytes), likely not valid")
-                return None
-                
-            # 画像として開いてみる
-            from PIL import Image
-            from io import BytesIO
-            
-            image = Image.open(BytesIO(image_data))
-            
-            # 保存先パスの生成
-            image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"temp_image_{int(time.time())}.png")
-            
-            # 画像の保存
-            image.save(image_path)
-            logging.info(f"Image successfully saved to {image_path}")
-            
-            # パスを返す
-            return image_path
-            
-        except Exception as img_error:
-            logging.error(f"Error processing image data: {img_error}")
-            import traceback
-            logging.error(f"Image processing stack trace: {traceback.format_exc()}")
-            
-            # 画像データの情報をログ出力
-            if image_data:
-                try:
-                    logging.info(f"Image data type: {type(image_data)}, length: {len(image_data)}")
-                    if len(image_data) < 1000:
-                        logging.info(f"Image data content: {str(image_data)[:100]}...")
-                except:
-                    pass
-            return None
+        # 応答から画像データを抽出
+        image_part = response.parts[0]
+        if not image_part.inline_data or not image_part.inline_data.mime_type.startswith('image/'):
+            if response.text:
+                logging.warning(f"Image generation model returned text instead of an image: {response.text}")
+            raise ConnectionError("No image data found in the response.")
+
+        image_bytes = image_part.inline_data.data
+        image = Image.open(BytesIO(image_bytes))
+        
+        temp_image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_generated_image.png")
+        image.save(temp_image_path)
+        logging.info(f"Image saved temporarily to {temp_image_path}")
+        return temp_image_path
 
     except Exception as e:
         logging.error(f"An error occurred during image generation with Gemini: {e}")
-        import traceback
         logging.error(f"Stack trace: {traceback.format_exc()}")
         return None
 
