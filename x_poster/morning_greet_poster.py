@@ -106,59 +106,40 @@ def get_services_from_sheet(config):
         return []
 
 # --- AI Content Generation ---
-def generate_ai_comment(config, service_name, service_description, max_length_for_japanese_comment):
-    """Generates a bilingual (JA/EN) comment and categorizes the service using Gemini AI."""
+def generate_ai_comment(config, service_name, service_description):
+    """Generates a tweet using Gemini AI based on service info."""
     try:
         genai.configure(api_key=config['gemini_api_key'])
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
-        character_name = config.get('character_name', 'AI')
-        persona = config.get('persona', '')
-        is_nft_related = any(k in service_description.lower() for k in ["nft", "token", "collectible", "mint"])
-        question_prompt = "「持ってる人いる？」「ミントした？」" if is_nft_related else "「使ったことある？」「みんなはどう思う？」"
+        model = genai.GenerativeModel('gemini-pro')
+
+        character_name = config.get('character_name', 'ウチ')
+        persona = config.get('persona', 'フレンドリーなキャラクター')
+        
+        # Dynamic closing phrase based on service description
+        closing_phrase_options = {
+            "NFT": ["「持ってる人いる？」", "「ミントした？」"],
+            "default": ["「使ったことある？」", "「みんなはどう思う？」"]
+        }
+        
+        category = "NFT" if "nft" in service_description.lower() else "default"
+        closing_phrase = random.choice(closing_phrase_options[category])
+
         prompt = f"""
-あなたは「{character_name}」という名前のVTuberです。
-以下のペルソナと指示に従って、与えられたサービスに関する分析とコメント作成を行ってください。
+あなたは「{character_name}」という名前のキャラクターです。
+ペルソナ: {persona}
 
-# ペルソナ
-{persona}
-
-# 指示
-1.  **カテゴリ分類**: 与えられたサービスが以下のどれに最も当てはまるか判断してください。
-    - NFT (NFTコレクション、NFTマーケットプレイスなど)
-    - Webサービス (一般的なWebアプリケーション、ツールなど)
-    - DApp (分散型アプリケーション)
-    - その他 (上記に当てはまらないプロジェクトや技術など)
-2.  **コメント作成**: 
-    - サービス概要を単に要約するのではなく、あなた自身の言葉でそのサービスの魅力や面白い点を解説してください。
-    - 「これめっちゃ欲しいわ」「絶対使いたい！」のように、あなたの欲求や感情を表現してください。
-    - {question_prompt}  # ここで動的に質問文言を挿入
-    - あなたのペルソナ（関西弁など）を完全に維持してください。
-    - コメント本文に「Gmonamin」などの挨拶は含めないでください。
-    - 日本語のコメントは、必ず**{max_length_for_japanese_comment}文字以内**に収めてください。短く、キャッチーな内容を心がけてください。
-    - 英語のコメントも、同様に簡潔にしてください。
-
-# 対象サービス
+以下のサービスについて、あなたのキャラクターとして140文字以内で紹介ツイートを作成してください。
 サービス名: {service_name}
-サービス概要: {service_description}
+概要: {service_description}
 
-# 出力形式
-必ず以下のJSON形式で回答してください。他のテキストは一切含めないでください。
-{{
-  "category": "ここにカテゴリを記述 (NFT, Webサービス, DApp, その他)",
-  "ja": "ここに日本語のコメントを記述",
-  "en": "ここに英語のコメントを記述"
-}}
+ツイートの最後は必ず「{closing_phrase}」で締めくくってください。
 """
-
+        
         response = model.generate_content(prompt)
-        cleaned_response = response.text.strip().removeprefix('```json').removesuffix('```')
-        ai_data = json.loads(cleaned_response)
-        if isinstance(ai_data, dict) and all(k in ai_data for k in ['category', 'ja', 'en']):
-            return ai_data
-        raise ValueError("AI response format error.")
+        return response.text.strip()
     except Exception as e:
         logging.error(f"Error generating AI comment: {e}")
-        return {"category": "サービス", "ja": "今日はこのサービスに注目やで！", "en": "Let's check out this service today!"}
+        return f"【{service_name}】は面白そうなサービスやな！みんなもチェックしてみてな！"
 
 def generate_and_save_image(config, text_prompt, character_name, persona, service_name):
     """Generates an image using the Gemini API based on a detailed text prompt and saves it to a temporary file."""
@@ -172,6 +153,7 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
             return None
             
         # Gemini APIクライアントの初期化
+        genai.configure(api_key=api_key)
         client = genai.Client(api_key=api_key)
 
         character_description = config.get('x_poster', {}).get('character_description', 'A female AITuber character.')
@@ -381,15 +363,7 @@ def run_post_job():
     selected_service = random.choice(services)
     service_name, service_description = selected_service['name'], selected_service['description']
     
-    greeting_text = config.get('greeting', 'Gmonamin!')
-    hashtags_text = "#Monad #AITuber #Monamin"
-    max_len = 140 - (len(greeting_text) + len(f"今日の注目サービスは「{service_name}」やで！") + len(hashtags_text) + 6)
-    
-    ai_data = generate_ai_comment(config, service_name, service_description, max(10, max_len))
-    category, ai_comment_ja, ai_comment_en = ai_data.get('category', 'サービス'), ai_data.get('ja', "注目やで！"), ai_data.get('en', "Check it out!")
-
-    intro_text = f"今日の注目{category}は「{service_name}」やで！"
-    japanese_tweet_text = f"{greeting_text}\n\n{intro_text}\n\n{ai_comment_ja}\n\n{hashtags_text}"
+    japanese_tweet_text = generate_ai_comment(config, service_name, service_description)
 
     image_path = None
     image_generation_enabled = config.get('x_poster', {}).get('morning_greeting', {}).get('image_generation_enabled', False)
@@ -398,7 +372,7 @@ def run_post_job():
         if image_generation_enabled:
             image_path = generate_and_save_image(
                 config, 
-                f"{intro_text} {ai_comment_ja}", 
+                japanese_tweet_text, # Use the full generated tweet for the image prompt
                 config.get('character_name'), 
                 config.get('persona'),
                 service_name
@@ -408,13 +382,10 @@ def run_post_job():
         if not japanese_tweet_id: logging.error("Failed to post Japanese tweet. Aborting."); return
 
         record_post_timestamp()
-        logging.info("Waiting 10 minutes before English reply...")
-        time.sleep(600)
-
-        # English Tweet (with image, as a reply)
-        intro_en = f"Today's featured {category} is \"{service_name}\""
-        tweet_en = f"Gmonamin! {intro_en}!\n\n{ai_comment_en}\n\n#Monad #AITuber #Monamin_EN"
-        post_to_twitter(config, tweet_en, image_path=image_path)
+        # English tweet is temporarily disabled to restore core functionality.
+        # logging.info("Waiting 10 minutes before English reply...")
+        # time.sleep(600)
+        # post_to_twitter(config, english_tweet_text, image_path=image_path)
 
     finally:
         if image_path and os.path.exists(image_path):
