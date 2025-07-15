@@ -27,7 +27,7 @@
   "tts_settings": {
     "provider": "gemini",
     "voice": "Zephyr",
-    "prompt": "Speak with the bright, innocent, and charming voice of a cheerful anime girl or VTuber, like a high school heroine or Hololive VTuber. Use a clear, slightly high-pitched tone with a youthful and expressive energy. Your voice should sound honest, cute, and friendly.",
+    "prompt": "Speak with a bright, cute tone and high-pitched UwU voice of a cheerful anime girl or VTuber, like a high school heroine or Hololive VTuber. Use a youthful and expressive energy. Your voice should sound innocent, charming, honest, and friendly.",
     "api_key": ""
   },
   "x_poster": {
