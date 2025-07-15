@@ -148,7 +148,56 @@ def generate_ai_comment(config, service_name, service_description):
         logging.error(f"Error generating AI comment: {e}")
         return f"【{service_name}】は面白そうなサービスやな！みんなもチェックしてみてな！"
 
-def generate_and_save_image(config, text_prompt, character_name, persona, service_name):
+def extract_service_essence(service_name, service_description):
+    """サービスの特徴を抽出し、画像生成に適したシチュエーションを返します。
+    
+    Args:
+        service_name (str): サービス名
+        service_description (str): サービスの説明
+        
+    Returns:
+        str: 画像生成に適したシチュエーション説明
+    """
+    # サービスの種類に基づいて適切なシチュエーションを返す
+    service_name_lower = service_name.lower()
+    description_lower = service_description.lower()
+    
+    # NFT関連サービスの場合
+    if any(keyword in service_name_lower or keyword in description_lower for keyword in 
+           ['nft', 'token', 'crypto', 'blockchain', 'web3', 'デジタルアート', 'コレクション']):
+        return f"{service_name}というNFTやブロックチェーンサービスについて説明している様子。スマホやタブレットでNFTアートを見せている。"
+    
+    # 食事関連サービス
+    elif any(keyword in service_name_lower or keyword in description_lower for keyword in 
+            ['food', 'eat', 'restaurant', 'café', 'cafe', 'coffee', 'drink', '食べ物', '飲み物', 'レストラン', 'カフェ']):
+        return f"{service_name}というフードサービスについて説明している様子。食事やドリンクを楽しんでいる。"
+    
+    # ゲーム関連サービス
+    elif any(keyword in service_name_lower or keyword in description_lower for keyword in 
+            ['game', 'play', 'gaming', 'ゲーム', 'プレイ']):
+        return f"{service_name}というゲームサービスについて説明している様子。ゲームをプレイしている。"
+    
+    # ソーシャルメディア関連
+    elif any(keyword in service_name_lower or keyword in description_lower for keyword in 
+            ['social', 'media', 'sns', 'twitter', 'facebook', 'instagram', 'ソーシャル']):
+        return f"{service_name}というSNSサービスについて説明している様子。スマホでSNSを見ている。"
+    
+    # 金融関連サービス
+    elif any(keyword in service_name_lower or keyword in description_lower for keyword in 
+            ['finance', 'bank', 'money', 'payment', '金融', '決済', '支払い']):
+        return f"{service_name}という金融サービスについて説明している様子。財布やスマホ決済を使っている。"
+    
+    # ギャンブル関連
+    elif any(keyword in service_name_lower or keyword in description_lower for keyword in 
+            ['gamble', 'bet', 'casino', 'ギャンブル', 'カジノ', '賭け']):
+        return f"{service_name}というギャンブル関連サービスについて説明している様子。ちょっとドキドキした表情をしている。"
+    
+    # デフォルト（一般的なテック系サービス）
+    else:
+        return f"{service_name}というサービスについて説明している様子。スマホやノートPCを操作している。"
+
+
+def generate_and_save_image(config, text_prompt, character_name, persona, service_name, service_description=""):
     """Generates an image using the Gemini API based on a detailed text prompt and saves it to a temporary file."""
     try:
         logging.info("Initializing Gemini API for image generation...")
@@ -159,17 +208,31 @@ def generate_and_save_image(config, text_prompt, character_name, persona, servic
         # 画像生成用のクライアントを初期化
         client = genai_client.Client(api_key=api_key)
         
+        # キャラクターの外見情報を取得
+        character_description = config.get('x_poster', {}).get('character_description', 
+            "A female AITuber character with long, glittery purple hair styled into twin tails and buns, and straight bangs. "
+            "She has large, expressive purple eyes with white, glowing pupils. She is wearing a classic maid outfit, "
+            "consisting of a dark purple dress, a white apron with ruffles, a white ruffled headdress, and a small black bow at her neck. "
+            "She is also wearing black stockings.")
+        
+        # サービスのエッセンスを抽出
+        service_context = extract_service_essence(service_name, service_description)
+        
+        # ちびキャラにするかどうかをランダムに決定（約20%の確率）
+        is_chibi = random.random() < 0.2
+        chibi_style = "ちびキャラ（頭が大きく、体が小さい、デフォルメされたかわいいスタイル）で描いてください。" if is_chibi else ""
+        
         # 画像生成のためのプロンプト作成
         image_generation_prompt = (
-            f"{persona}\n\n" 
-            f"あなたは「{character_name}」です。以下のツイート内容を元に、文脈に合った画像を生成してください。"
-            f"画像は日本の萌えアニメ風のスタイルで、一人の女の子を描いてください。" 
-            f"画像に文字は含めないでください。\n\n" 
-            f"ツイート内容: {text_prompt}\n"
-            f"紹介しているサービス: {service_name}"
+            f"以下の特徴を持つアニメキャラクターの画像を生成してください：\n\n"
+            f"{character_description}\n\n"
+            f"このキャラクターは「{character_name}」という名前で、{service_context}\n\n"
+            f"画像は日本の萌えアニメ風のスタイルで、高品質な一枚絵として描いてください。{chibi_style}"
+            f"画像には文字やテキストを含めないでください。キャラクターのみをクリアに表示してください。"
         )
 
-        logging.info(f"Generating image with prompt: {image_generation_prompt[:200]}...")
+        logging.info(f"Generating {'chibi' if is_chibi else 'normal'} character image for service: {service_name}")
+        logging.info(f"Image generation prompt: {image_generation_prompt[:200]}...")
         
         # 画像生成専用モデルとパラメータを使用
         try:
@@ -315,10 +378,11 @@ def run_post_job():
         if image_generation_enabled:
             image_path = generate_and_save_image(
                 config, 
-                japanese_tweet_text, # Use the full generated tweet for the image prompt
+                japanese_tweet_text, # テキスト全体は参照用に残しておく
                 config.get('character_name'), 
                 config.get('persona'),
-                service_name
+                service_name,
+                service_description # サービスの説明も渡す
             )
 
         japanese_tweet_id = post_to_twitter(config, japanese_tweet_text, image_path=image_path)
